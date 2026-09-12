@@ -4,6 +4,12 @@ Windows Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAut
 
 > 非 OpenAI 官方产品。当前为未签名预览版；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
+## 下载 Windows 安装包
+
+[下载 0.3.3 Windows x64 安装包](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.3.3/Codex-Auth-Manager-Setup-0.3.3-x64.exe) · [发布说明与验证信息](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.3.3)
+
+此版本为未签名预览版。更新时先退出旧版 Codex Auth Manager，再运行安装程序并选择原安装目录。
+
 ## 从源码运行
 
 需要 Windows 10 / 11、Node.js 22 或更高版本、npm 与 Git。
@@ -20,7 +26,7 @@ npm start
 - 安装：构建后运行 `release/Codex Auth Manager Setup 0.3.3.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
-本仓库提交源码，不包含本机构建的安装包。只有在本仓库 Releases 中实际发布的附件才是可下载发行包。
+Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
 
 添加账号与查询官方额度需要本机 Codex CLI；开发机验证版本为 `codex-cli 0.154.0`。本版优先支持 Windows Store / MSIX Codex 桌面端。
 
