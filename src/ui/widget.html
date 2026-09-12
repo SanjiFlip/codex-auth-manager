@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Codex Quick View</title>
+    <link rel="icon" href="./assets/codex-color.ico" sizes="any" />
+    <link rel="stylesheet" href="./widget.css" />
+  </head>
+  <body>
+    <main class="widget">
+      <button id="dockCollapseBtn" class="dock-collapse-btn" title="收起浮窗" aria-label="收起浮窗" hidden>
+        <span class="dock-collapse-text">收起</span>
+        <strong id="dockCollapseIcon" aria-hidden="true">&gt;</strong>
+      </button>
+      <header class="widget-head">
+        <div class="brand">
+          <img class="mark" src="./assets/codex-color.png" alt="" />
+          <div>
+            <p class="brand-version">CodexAuth <button id="checkUpdatesBtn" class="version-btn" type="button" title="从 GitHub 检查更新"><span id="appVersion">版本…</span></button></p>
+            <strong id="currentIdentity">读取中</strong>
+          </div>
+        </div>
+        <div class="head-actions">
+          <button id="pinBtn" title="固定在最前" aria-label="固定在最前" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 17v4" />
+              <path d="M8 4h8" />
+              <path d="m9 4 1 7-3 3v3h10v-3l-3-3 1-7" />
+            </svg>
+          </button>
+          <button id="settingsBtn" title="浮窗设置" aria-label="浮窗设置" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 7h10" />
+              <path d="M18 7h2" />
+              <path d="M14 5v4" />
+              <path d="M4 17h2" />
+              <path d="M10 17h10" />
+              <path d="M6 15v4" />
+            </svg>
+          </button>
+          <button id="hideBtn" title="关闭浮窗" aria-label="关闭浮窗">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m7 7 10 10" />
+              <path d="m17 7-10 10" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div id="settingsPanel" class="settings-panel" hidden>
+        <label class="setting-row" for="opacityRange">
+          <span>透明度</span>
+          <strong id="opacityValue">96%</strong>
+        </label>
+        <input id="opacityRange" type="range" min="82" max="100" value="98" />
+      </div>
+
+      <section class="quota-card">
+        <div class="quota-line">
+          <span id="sessionWindowTitle">5 小时额度</span>
+          <strong id="sessionPercent">--</strong>
+        </div>
+        <div class="meter"><span id="sessionMeter"></span></div>
+        <p id="sessionReset">--</p>
+
+        <div class="quota-line weekly">
+          <span>每周额度</span>
+          <strong id="weeklyPercent">--</strong>
+        </div>
+        <div class="meter"><span id="weeklyMeter"></span></div>
+        <p id="weeklyReset">--</p>
+        <p id="quotaFreshness" class="freshness">--</p>
+        <p id="resetCreditsInfo" class="freshness">重置次数：未知 · 尚无本地记录</p>
+      </section>
+
+      <section class="quick-actions">
+        <button id="mainBtn" class="primary-action">主窗口</button>
+        <button id="restartBtn">重启 Codex</button>
+      </section>
+
+      <section class="accounts">
+        <div class="section-title">
+          <span>快速切换</span>
+          <button id="refreshBtn">刷新</button>
+        </div>
+        <div id="accountList" class="account-list"></div>
+      </section>
+    </main>
+    <div class="resize-handle resize-n" data-resize-edge="n" aria-hidden="true"></div>
+    <div class="resize-handle resize-e" data-resize-edge="e" aria-hidden="true"></div>
+    <div class="resize-handle resize-s" data-resize-edge="s" aria-hidden="true"></div>
+    <div class="resize-handle resize-w" data-resize-edge="w" aria-hidden="true"></div>
+    <div class="resize-handle resize-ne" data-resize-edge="ne" aria-hidden="true"></div>
+    <div class="resize-handle resize-se" data-resize-edge="se" aria-hidden="true"></div>
+    <div class="resize-handle resize-sw" data-resize-edge="sw" aria-hidden="true"></div>
+    <div class="resize-handle resize-nw" data-resize-edge="nw" aria-hidden="true"></div>
+    <div id="toast" class="toast"></div>
+    <script src="./shared-quota.js"></script>
+    <script src="./widget.js"></script>
+    <script src="./updates.js"></script>
+  </body>
+</html>

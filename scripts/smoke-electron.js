@@ -1,0 +1,87 @@
+// Runs the actual main/preload/renderer using ONLY synthetic credentials in a temporary home.
+const {app,BrowserWindow}=require('electron');
+const fs=require('node:fs');
+const path=require('node:path');
+const os=require('node:os');
+const assert=require('node:assert/strict');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cam-desktop-smoke-'));
+const codex=path.join(temp,'codex');fs.mkdirSync(codex);
+process.env.CODEX_HOME=codex;
+app.setPath('appData',temp);
+app.setPath('userData',path.join(temp,'electron'));
+fs.writeFileSync(path.join(codex,'config.toml'),'cli_auth_credentials_store = "file"\n');
+const jwt=value=>'eyJhbGciOiJub25lIn0.'+Buffer.from(JSON.stringify(value)).toString('base64url')+'.synthetic';
+const auth=JSON.stringify({auth_mode:'chatgpt',tokens:{access_token:jwt({sub:'smoke-user',exp:2000000000,'https://api.openai.com/auth':{chatgpt_account_id:'smoke-workspace',chatgpt_plan_type:'plus'}}),id_token:jwt({sub:'smoke-user',email:'smoke@example.invalid'}),refresh_token:'SYNTHETIC-NOT-A-REAL-CREDENTIAL'},last_refresh:new Date().toISOString()});
+fs.writeFileSync(path.join(codex,'auth.json'),auth);
+// OS adapter is replaced only in this harness. No real Codex process is touched.
+const lifecycle=require('../src/windows-codex');
+const lifecycleCalls=[];
+let failLaunch=false;
+lifecycle.discover=async()=>{lifecycleCalls.push('discover');return {synthetic:true}};
+lifecycle.stop=async()=>{lifecycleCalls.push('stop')};
+lifecycle.launch=async()=>{lifecycleCalls.push('launch');if(failLaunch)throw Error('synthetic startup failure')};
+require('../src/main');
+setTimeout(()=>{console.error('SMOKE FAIL: timeout');app.exit(1)},45000);
+const deadline=Date.now()+30000;
+let ran=false;
+const timer=setInterval(async()=>{
+  if(ran)return;
+  const win=BrowserWindow.getAllWindows().find(w=>!w.isDestroyed()&&w.webContents.getURL().includes('manager.html'));
+  if(!win||win.webContents.isLoading()){if(Date.now()>deadline){console.error('SMOKE FAIL: desktop startup timeout');app.exit(1)}return}
+  ran=true;clearInterval(timer);
+  try{
+    const result=await win.webContents.executeJavaScript(`(async()=>{
+      let s=await window.codexAuth.importCurrent('Synthetic smoke account');
+      const account=s.accounts.find(a=>a.email==='smoke@example.invalid');
+      if(!account)throw Error('Synthetic profile missing');
+      if(JSON.stringify(s).includes('SYNTHETIC-NOT-A-REAL-CREDENTIAL'))throw Error('Credential leaked over IPC');
+      s=await window.codexAuth.updateAccount(account.id,{displayName:'Renamed smoke account'});
+      if(!s.accounts.some(a=>a.displayName==='Renamed smoke account'))throw Error('Rename failed');
+      return {ok:true,id:account.id};
+    })()`);
+    assert.equal(result.ok,true);
+    const secondAuth=auth.replaceAll('smoke-user','second-user');
+    // Rebuild tokens because JWT payloads are base64 encoded.
+    const second=JSON.parse(secondAuth);
+    second.tokens.id_token=jwt({sub:'second-user',email:'second@example.invalid'});
+    second.tokens.access_token=jwt({sub:'second-user',exp:2000000000,'https://api.openai.com/auth':{chatgpt_account_id:'second-workspace',chatgpt_plan_type:'plus'}});
+    const targetContent=JSON.stringify(second);
+    fs.writeFileSync(path.join(codex,'auth.json'),targetContent);
+    const secondId=await win.webContents.executeJavaScript(`(async()=>{const s=await window.codexAuth.importCurrent('Second synthetic account');return s.accounts.find(a=>a.email==='second@example.invalid').id})()`);
+    fs.writeFileSync(path.join(codex,'auth.json'),auth);
+    await win.webContents.executeJavaScript(`window.codexAuth.switchAccount(${JSON.stringify(secondId)})`);
+    assert.equal(fs.readFileSync(path.join(codex,'auth.json'),'utf8'),targetContent);
+    assert.deepEqual(lifecycleCalls,['discover','stop','launch']);
+    failLaunch=true;
+    const failure=await win.webContents.executeJavaScript(`window.codexAuth.switchAccount(${JSON.stringify(result.id)}).then(()=>null,e=>e.message)`);
+    assert.match(failure,/已恢复原凭据/);
+    assert.equal(fs.readFileSync(path.join(codex,'auth.json'),'utf8'),targetContent,'Failed switch must restore the previous file');
+    assert.deepEqual(lifecycleCalls.slice(-4),['discover','stop','launch','stop']);
+    await win.webContents.executeJavaScript(`window.codexAuth.deleteAccount(${JSON.stringify(secondId)})`);
+    assert.equal(fs.readFileSync(path.join(codex,'auth.json'),'utf8'),targetContent,'Removing current stored profile must preserve auth');
+    fs.writeFileSync(path.join(codex,'auth.json'),auth);
+    await win.webContents.executeJavaScript(`window.codexAuth.deleteAccount(${JSON.stringify(result.id)})`);
+    assert.equal(fs.readFileSync(path.join(codex,'auth.json'),'utf8'),auth,'Removing a stored account must preserve current Codex login');
+    const backups=path.join(temp,'codex-auth-manager');
+    assert.ok(fs.existsSync(backups));
+    assert.equal(fs.readFileSync(path.join(codex,'config.toml'),'utf8'),'cli_auth_credentials_store = "file"\n');
+    console.log('Checking widget creation');
+    await win.webContents.executeJavaScript('window.codexAuth.showWidget()');
+    const meter=BrowserWindow.getAllWindows().find(w=>w.id!==win.id);
+    console.log('Widget found:',!!meter);
+    if(meter?.webContents.isLoading())await Promise.race([new Promise(r=>meter.webContents.once('did-finish-load',r)),new Promise(r=>setTimeout(r,3000))]);
+    assert.ok(meter?.isVisible(),'Native widget visible');
+    if(meter.webContents.isLoading())await Promise.race([new Promise(r=>meter.webContents.once('did-finish-load',r)),new Promise(r=>setTimeout(r,3000))]);
+    console.log('Widget loaded:',meter.webContents.getURL(),meter.webContents.isLoading());
+    await meter.webContents.executeJavaScript('window.codexAuth.setWidgetTopmost(true)');
+    assert.equal(meter.isAlwaysOnTop(),true);
+    assert.equal(meter.getBounds().width,360);
+    const stat=await meter.webContents.executeJavaScript('window.codexAuth.getStatistics()');
+    assert.equal(stat.sessionsAnalyzed,0);
+    await meter.webContents.executeJavaScript('window.codexAuth.hideWidget()');
+    assert.equal(meter.isVisible(),false);
+    console.log('SMOKE PASS: real IPC and DPAPI, rename/removal, actual credential switching and rollback with a fake OS adapter, current auth preserved, no token returned to renderer.');
+    app.exit(0);
+  }catch(error){console.error('SMOKE FAIL:',error.message);app.exit(1)}
+},200);
+// The directory contains synthetic fixtures only. Kept until app exits; OS temp cleanup is sufficient.

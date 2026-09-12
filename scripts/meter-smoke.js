@@ -1,0 +1,37 @@
+async(page)=>{
+  const url='http://127.0.0.1:4318/meter.html?demo=1';
+  await page.goto(url);await page.evaluate(()=>{localStorage.setItem('demo-pro-five-hour','0');localStorage.setItem('meter-dark','0')});await page.reload();await page.setViewportSize({width:360,height:560});
+  await page.locator('#session').filter({hasText:'97%'}).waitFor();
+  if(await page.locator('#weekly-section').isVisible())throw Error('Duplicate weekly card');
+  if((await page.locator('body').innerText()).includes('5 小时'))throw Error('Pro off mode retains five-hour label');
+  if(!await page.locator('#switch-btn').isDisabled())throw Error('Active account must not restart');
+  await page.screenshot({path:'output/playwright/meter-weekly.png',animations:'disabled'});
+  await page.getByRole('button',{name:'选择账号',exact:true}).click();
+  await page.screenshot({path:'output/playwright/meter-accounts.png',animations:'disabled'});
+  await page.getByRole('option').filter({hasText:'研究与探索'}).click();
+  await page.getByRole('button',{name:'刷新官方额度'}).click();
+  if(await page.locator('#selected-name').innerText()!=='研究与探索')throw Error('Refresh discarded pending choice');
+  await page.getByRole('button',{name:'切换并重启 Codex',exact:true}).click();
+  await page.getByRole('dialog').getByText('切换到「研究与探索」',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'取消',exact:true}).click();
+  if(await page.locator('#session').innerText()!=='97%')throw Error('Cancel changed active account');
+  await page.getByRole('button',{name:'切换并重启 Codex',exact:true}).click();await page.getByRole('button',{name:'确认切换',exact:true}).click();
+  await page.locator('#session').filter({hasText:'68%'}).waitFor();
+  if(!await page.locator('#switch-btn').isDisabled())throw Error('Successful switch not reflected');
+  await page.getByRole('button',{name:'选择账号',exact:true}).click();
+  await page.getByRole('option').filter({hasText:'创作空间'}).click();
+  await page.getByRole('button',{name:'切换并重启 Codex',exact:true}).click();await page.getByRole('button',{name:'确认切换',exact:true}).click();
+  await page.locator('#session').filter({hasText:'62%'}).waitFor();
+  if(!await page.locator('#weekly-section').isVisible())throw Error('Plus weekly card missing');
+  await page.locator('#weekly').filter({hasText:'52%'}).waitFor();
+  await page.evaluate(()=>{document.querySelector('#message').hidden=true});
+  const fit=await page.evaluate(()=>{const e=document.querySelector('.meter-content');return e.scrollHeight<=e.clientHeight+1});if(!fit)throw Error('Dual-window layout overflows');
+  await page.screenshot({path:'output/playwright/meter-plus.png',animations:'disabled'});
+  await page.getByRole('button',{name:'选择账号',exact:true}).focus();await page.keyboard.press('ArrowDown');await page.keyboard.press('Home');await page.keyboard.press('Enter');
+  if(await page.locator('#selected-name').innerText()!=='日常工作')throw Error('Keyboard selection failed');
+  await page.getByRole('button',{name:'选择账号',exact:true}).click();await page.keyboard.press('Escape');if(await page.locator('#account-menu').isVisible())throw Error('Escape did not close picker');
+  await page.getByRole('button',{name:'切换主题'}).click();await page.getByRole('button',{name:'选择账号',exact:true}).click();
+  await page.screenshot({path:'output/playwright/meter-dark-picker.png',animations:'disabled'});
+  await page.goto('http://127.0.0.1:4318/manager.html?demo=1');await page.setViewportSize({width:1280,height:1000});
+  console.log('PASS: weekly-only, Plus dual windows, choice preserved across refresh, cancel, confirmed switch, keyboard selection, dark picker, no clipping.');
+}

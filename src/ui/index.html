@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>CodexAuth Switch</title>
+    <link rel="icon" href="./assets/codex-color.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="./assets/codex-color.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="app-meta">
+            <p id="platformLabel" class="eyebrow">本机本地</p>
+            <button id="checkUpdatesBtn" class="version-btn" type="button" title="从 GitHub 检查更新"><span id="appVersion">版本…</span> · 检查更新</button>
+          </div>
+          <h1>Codex App 账号切换</h1>
+        </div>
+        <div class="top-actions">
+          <div class="page-tabs" role="tablist" aria-label="Main pages">
+            <button id="accountsTab" class="page-tab active" type="button" role="tab" aria-selected="true">
+              账号
+            </button>
+            <button id="usageTab" class="page-tab" type="button" role="tab" aria-selected="false">
+              用量
+            </button>
+          </div>
+          <button id="refreshBtn" class="icon-btn" title="刷新">↻</button>
+          <button id="widgetBtn" class="ghost-btn">浮窗</button>
+          <button id="restartBtn" class="ghost-btn">重启 Codex App</button>
+        </div>
+      </section>
+
+      <section id="accountsPage" class="page active">
+        <section class="status-grid">
+          <article class="status-panel">
+            <p class="label">当前登录</p>
+            <h2 id="currentIdentity">读取中</h2>
+            <p id="currentPath" class="muted"></p>
+          </article>
+          <article class="status-panel compact">
+            <p class="label">本地保险箱</p>
+            <h2 id="accountCount">0 个账号</h2>
+            <p id="storePath" class="muted link-like"></p>
+          </article>
+        </section>
+
+        <section class="import-row">
+          <input
+            id="displayNameInput"
+            class="name-input"
+            placeholder="账号备注，例如 work / personal"
+            autocomplete="off"
+          />
+          <button id="importBtn" class="primary-btn">导入当前 Codex 登录</button>
+        </section>
+
+        <section class="credential-transfer">
+          <div><strong>跨电脑迁移</strong><p>用迁移密码保护账号凭证，在另一台电脑导入后即可选择切换。</p></div>
+          <div class="transfer-actions">
+            <button id="exportCredentialsBtn" class="ghost-btn">导出当前账号</button>
+            <button id="importCredentialsBtn" class="ghost-btn">导入凭证文件</button>
+          </div>
+        </section>
+
+        <section class="content-layout">
+          <div class="account-list" id="accountList"></div>
+          <aside class="side-panel">
+            <p class="label">切换策略</p>
+            <label class="toggle-row">
+              <input id="restartAfterSwitch" type="checkbox" checked />
+              <span>切换后重启 Codex App</span>
+            </label>
+            <div class="divider"></div>
+            <p class="small-copy">
+              凭证使用 <span id="credentialProtection">操作系统当前用户安全存储</span> 加密保存。切换前会备份并保存当前
+              <code>auth.json</code>，减少刷新令牌丢失。
+            </p>
+            <p class="small-copy">
+              如果 Codex 提示 refresh token 已被使用，需要在 Codex App 重新登录该账号，
+              然后回到这里重新导入当前登录。
+            </p>
+            <div class="divider"></div>
+            <details class="local-diagnostics" open>
+              <summary>本地兼容性自检</summary>
+              <p id="diagnosticsInfo" class="small-copy" role="status">读取中</p>
+              <p id="recoveryInfo" class="small-copy" hidden></p>
+            </details>
+          </aside>
+        </section>
+      </section>
+
+      <section id="usagePage" class="page">
+        <section class="dashboard-panel">
+          <div class="section-head">
+            <div>
+              <p class="label">额度与用量</p>
+              <h2>当前账号概览</h2>
+            </div>
+            <div class="section-head-actions">
+              <div class="scope-tabs" role="tablist" aria-label="Usage scope">
+                <button id="scopeCurrentBtn" class="scope-tab active" type="button" role="tab" aria-selected="true">当前账号</button>
+                <button id="scopeAllBtn" class="scope-tab" type="button" role="tab" aria-selected="false">全部本地</button>
+              </div>
+              <button id="statsRefreshBtn" class="ghost-btn">刷新</button>
+            </div>
+          </div>
+
+          <div class="quota-mode-panel">
+            <div>
+              <strong>额度读取模式</strong>
+              <p id="quotaModeHint">本地预估：只读取本机 Codex 日志，不联网。</p>
+            </div>
+          </div>
+
+          <div class="quota-grid">
+            <article class="quota-card">
+              <div class="quota-title">
+                <span id="sessionWindowTitle">5 小时额度</span>
+                <strong id="sessionPercent">--</strong>
+              </div>
+              <div class="meter"><span id="sessionMeter"></span></div>
+              <p id="sessionReset" class="muted">--</p>
+            </article>
+            <article class="quota-card">
+              <div class="quota-title">
+                <span id="weeklyWindowTitle">周额度</span>
+                <strong id="weeklyPercent">--</strong>
+              </div>
+              <div class="meter"><span id="weeklyMeter"></span></div>
+              <p id="weeklyReset" class="muted">--</p>
+            </article>
+            <article class="quota-card">
+              <div class="quota-title">
+                <span>套餐</span>
+                <strong id="planType">--</strong>
+              </div>
+              <p id="quotaSource" class="muted">--</p>
+              <p id="creditsInfo" class="muted">--</p>
+              <p id="resetCreditsInfo" class="muted">重置次数：未知 · 尚无本地记录</p>
+            </article>
+          </div>
+
+          <div class="usage-grid">
+            <article class="metric-card">
+              <span>总用量</span>
+              <strong id="totalTokens">--</strong>
+            </article>
+            <article class="metric-card">
+              <span>输入用量</span>
+              <strong id="inputTokens">--</strong>
+            </article>
+            <article class="metric-card">
+              <span>输出用量</span>
+              <strong id="outputTokens">--</strong>
+            </article>
+            <article class="metric-card">
+              <span>会话数</span>
+              <strong id="sessionCount">--</strong>
+            </article>
+          </div>
+          <p id="tokenBreakdown" class="usage-note"></p>
+          <p id="usageCoverage" class="usage-note"></p>
+          <p class="usage-note">
+            Token 按本地事件增量统计，缓存输入已含在输入中，推理输出已含在输出中，不重复相加。当前账号统计自最近切换起；其他设备或未落盘的用量无法从本机补齐。
+          </p>
+
+          <div class="usage-detail">
+            <div class="daily-bars" id="dailyBars"></div>
+            <div class="recent-sessions" id="recentSessions"></div>
+          </div>
+
+          <div class="usage-detail" style="margin-top: 12px">
+            <div class="daily-bars" id="projectStats"></div>
+            <div class="recent-sessions" id="modelStats"></div>
+          </div>
+
+          <section class="all-accounts-section" id="allAccountsSection">
+            <p class="usage-title">全部账号额度总览</p>
+            <div class="all-accounts-grid" id="allAccountsGrid"></div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <dialog id="transferDialog" class="confirm-dialog">
+      <form id="transferForm">
+        <h3 id="transferTitle">导出当前账号</h3>
+        <p id="transferDescription"></p>
+        <label for="transferPassword">迁移密码（至少 10 个字符）</label>
+        <input id="transferPassword" class="name-input dialog-input" type="password" minlength="10" maxlength="1024" required autocomplete="off" />
+        <div id="transferConfirmGroup">
+          <label for="transferConfirm">再次输入密码</label>
+          <input id="transferConfirm" class="name-input dialog-input" type="password" minlength="10" maxlength="1024" autocomplete="off" />
+        </div>
+        <p class="small-copy">凭证有效时可直接使用；过期、撤销或触发验证时仍需官方登录。请妥善保管迁移文件和密码。</p>
+        <p id="transferError" class="transfer-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button id="transferCancel" type="button" class="ghost-btn">取消</button>
+          <button id="transferSubmit" type="submit" class="primary-btn">选择保存位置</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="renameDialog" class="confirm-dialog rename-dialog">
+      <form method="dialog">
+        <h3>重命名账号</h3>
+        <input id="renameInput" class="name-input dialog-input" autocomplete="off" />
+        <div class="dialog-actions">
+          <button value="cancel" class="ghost-btn">取消</button>
+          <button id="renameOk" value="ok" class="primary-btn">保存</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="confirmDialog" class="confirm-dialog">
+      <form method="dialog">
+        <h3 id="confirmTitle">确认操作</h3>
+        <p id="confirmBody"></p>
+        <div class="dialog-actions">
+          <button value="cancel" class="ghost-btn">取消</button>
+          <button id="confirmOk" value="ok" class="danger-btn">删除</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="./shared-quota.js"></script>
+    <script src="./app.js"></script>
+    <script src="./updates.js"></script>
+  </body>
+</html>

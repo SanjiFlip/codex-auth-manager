@@ -1,0 +1,63 @@
+{
+  "name": "codex-auth-manager",
+  "productName": "Codex Auth Manager",
+  "version": "0.3.3",
+  "private": true,
+  "description": "A local Windows desktop manager for Codex accounts",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SanjiFlip/codex-auth-manager.git"
+  },
+  "homepage": "https://github.com/SanjiFlip/codex-auth-manager#readme",
+  "bugs": {
+    "url": "https://github.com/SanjiFlip/codex-auth-manager/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "src/bootstrap.js",
+  "scripts": {
+    "start": "electron .",
+    "demo": "electron scripts/demo.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/check.js",
+    "pack": "electron-builder --win dir --publish never",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "dependencies": {
+    "@iarna/toml": "2.2.5"
+  },
+  "devDependencies": {
+    "electron": "39.8.10",
+    "electron-builder": "26.8.1"
+  },
+  "build": {
+    "appId": "local.codex.authmanager",
+    "productName": "Codex Auth Manager",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "LICENSE",
+      "docs/THIRD_PARTY.md"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "src/windows-codex.ps1"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": true,
+      "icon": "src/ui/assets/manager.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}
