@@ -69,8 +69,11 @@ async function connect(target){
     const shot=await meter.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync('output/playwright/packaged-meter.png',Buffer.from(shot.data,'base64'));
     const mainShot=await main.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync('output/playwright/packaged-main.png',Buffer.from(mainShot.data,'base64'));
     await main.eval('window.codexAuth.hideWidget()');
+    await sleep(11000);
+    assert.equal(fs.existsSync(path.join(temp,'queried')),false,'Startup, focus and periodic local refresh must not call the CLI');
+    await main.eval('window.codexAuth.getState().then(s=>window.codexAuth.refreshOfficial(s.accounts[0].id))');
     for(let i=0;i<100&&!fs.existsSync(path.join(temp,'queried'));i++)await sleep(100);
-    assert.ok(fs.existsSync(path.join(temp,'queried')),'Packaged automatic refresh invokes isolated synthetic CLI');
+    assert.ok(fs.existsSync(path.join(temp,'queried')),'Explicit official refresh invokes isolated synthetic CLI');
     assert.equal(JSON.parse(fs.readFileSync(path.join(temp,'queried'))).consoleVisible,false,'Native quota process must have no visible console');
     assert.equal(fs.readFileSync(path.join(home,'auth.json'),'utf8'),auth);
     assert.ok(fs.existsSync('release/win-unpacked/resources/app.asar.unpacked/src/windows-codex.ps1'));

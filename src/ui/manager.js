@@ -130,10 +130,10 @@ async function refreshLive(){
   }catch(e){toast('自动刷新失败：'+e.message)}
   finally{liveReading=false;if(livePending&&!busy&&!loginActive){livePending=false;refreshLive()}}
 }
-function refreshOfficialInBackground(){
-  api.refreshCurrentQuota?.().catch(()=>{const status=$('.status-pill');status.title='官方同步失败，保留上次快照；稍后自动重试。'});
+function refreshLocalInBackground(){
+  api.refreshLocalData?.().catch(()=>{const status=$('.status-pill');status.title='本地读取失败，保留上次快照；稍后重试。'});
 }
-function liveTick(){refreshLive();refreshOfficialInBackground()}
+function liveTick(){refreshLive();refreshLocalInBackground()}
 async function run(task) { if(busy)return; busy=true;liveEpoch++; try{await task()}catch(e){toast(e.message||'操作失败');log('操作失败：'+(e.message||'未知错误'))}finally{busy=false;if(livePending){livePending=false;refreshLive()}} }
 function modal(title,body,actions) { const el=$('#modal'); el.innerHTML=`<div class="modal-header"><h2 id="modal-title">${title}</h2><button class="close-btn" data-action="close" aria-label="关闭">×</button></div>${body}<div class="modal-actions">${actions}</div>`; if(!el.open)el.showModal(); }
 async function closeModal() { if(loginActive){await api.cancelLogin();loginActive=false;} $('#modal').close(); }
@@ -194,9 +194,9 @@ if(api){
   api.onStateChanged?.(event=>{
     if(event.scope==='login')loginView(event);
     else if(event.scope==='switch'){state.switchStatus=event;if(page==='accounts')renderAccounts()}
-    else {refreshLive();if(event.scope==='accounts')refreshOfficialInBackground()}
+    else {refreshLive();if(event.scope==='accounts')refreshLocalInBackground()}
   });
-  refresh().then(()=>{loadStatistics();refreshOfficialInBackground()}).catch(e=>{render();toast('无法加载账号：'+e.message)});
+  refresh().then(()=>{loadStatistics();refreshLocalInBackground()}).catch(e=>{render();toast('无法加载账号：'+e.message)});
   if(!isDemo){setInterval(()=>{if(!document.hidden)liveTick()},10000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)liveTick()});window.addEventListener('focus',liveTick)}
 }else{
   render();toast('请通过桌面程序打开，或使用 ?demo=1 查看演示。');

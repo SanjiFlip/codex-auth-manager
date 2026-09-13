@@ -10,18 +10,15 @@ test('new local quota replaces older official windows using observation timestam
   assert.equal(displaySnapshot(official,{...local,weekly:{...local.weekly,checkedAt:'2026-09-12T00:00:00Z'}}).weekly.usedPercent,10);
   assert.equal(displaySnapshot(null,null),null);
 });
-test('both windows share one official request and cooldown; explicit refresh bypasses cooldown',async()=>{
-  let count=0,clock=100000,release;
-  const gate=createOfficialRefresh({now:()=>clock,refresh:async()=>{count++;await new Promise(r=>release=r);return count}});
-  const a=gate.request('a',{automatic:true}),b=gate.request('a',{automatic:true});
+test('both windows share one explicit official request, and a later request queries again',async()=>{
+  let count=0,release;
+  const gate=createOfficialRefresh({refresh:async()=>{count++;await new Promise(r=>release=r);return count}});
+  const a=gate.request('a'),b=gate.request('a');
   await Promise.resolve();assert.equal(count,1);release();assert.deepEqual(await Promise.all([a,b]),[1,1]);
-  assert.equal(await gate.request('a',{automatic:true}),null);
-  clock+=60001;const c=gate.request('a',{automatic:true});await Promise.resolve();release();await c;assert.equal(count,2);
-  const d=gate.request('a');await Promise.resolve();release();await d;assert.equal(count,3);
+  const c=gate.request('a');await Promise.resolve();release();await c;assert.equal(count,2);
 });
-test('failed automatic calls are backed off without blocking manual retry',async()=>{
+test('failed explicit calls release the request gate for manual retry',async()=>{
   let count=0;const gate=createOfficialRefresh({refresh:async()=>{count++;throw Error('offline')}});
-  await assert.rejects(gate.request('a',{automatic:true}),/offline/);
-  assert.equal(await gate.request('a',{automatic:true}),null);assert.equal(count,1);
+  await assert.rejects(gate.request('a'),/offline/);
   await assert.rejects(gate.request('a'),/offline/);assert.equal(count,2);
 });

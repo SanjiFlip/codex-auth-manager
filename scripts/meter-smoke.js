@@ -9,7 +9,7 @@ async(page)=>{
   await page.getByRole('button',{name:'选择账号',exact:true}).click();
   await page.screenshot({path:'output/playwright/meter-accounts.png',animations:'disabled'});
   await page.getByRole('option').filter({hasText:'研究与探索'}).click();
-  await page.getByRole('button',{name:'刷新官方额度'}).click();
+  await page.getByRole('button',{name:'刷新本地数据'}).click();
   if(await page.locator('#selected-name').innerText()!=='研究与探索')throw Error('Refresh discarded pending choice');
   await page.getByRole('button',{name:'切换并重启 Codex',exact:true}).click();
   await page.getByRole('dialog').getByText('切换到「研究与探索」',{exact:true}).waitFor();

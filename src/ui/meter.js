@@ -64,14 +64,15 @@ $('#main-btn').onclick=$('#open-main').onclick=()=>demo?window.open('manager.htm
 $('#theme-btn').onclick=()=>{document.body.classList.toggle('dark');localStorage.setItem('meter-dark',document.body.classList.contains('dark')?'1':'0')};
 $('#pin-btn').onclick=async()=>{const next=$('#pin-btn').getAttribute('aria-pressed')!=='true';try{if(!demo)await api.setWidgetTopmost(next);$('#pin-btn').setAttribute('aria-pressed',String(next));$('#pin-btn').classList.toggle('active',next)}catch(e){notify(e.message)}};
 $('#refresh-btn').onclick=async()=>{
-  if(busy)return;const account=currentAccount();setBusy(true);notify('正在更新额度与本机统计…');
+  if(busy)return;setBusy(true);notify('正在更新本地额度与用量…');
   try{
-    const results=await Promise.allSettled([demo?state:account?api.refreshOfficial(account.id):api.getState(),demo?usage:api.getStatistics()]);
+    if(!demo)await api.refreshLocalData();
+    const results=await Promise.allSettled([demo?state:api.getState(),demo?usage:api.getStatistics()]);
     if(results[0].status==='fulfilled')state=results[0].value;
     if(results[1].status==='fulfilled')usage=results[1].value;
     render();const failed=results.find(r=>r.status==='rejected');
     notify(failed?'部分更新失败：'+failed.reason.message:demo?'演示模式不查询真实账号':'已更新');
-  }finally{finishBusy()}
+  }catch(e){notify('本地更新失败：'+e.message)}finally{finishBusy()}
 };
 $('#switch-btn').onclick=()=>{const target=state.accounts.find(a=>a.id===selectedId);if(busy||!target||target.isActive)return;closeMenu();pendingTargetId=target.id;$('#confirm-name').textContent='切换到「'+target.displayName+'」';$('#switch-confirm').showModal();$('#cancel-switch').focus()};
 $('#cancel-switch').onclick=()=>{$('#switch-confirm').close();pendingTargetId=null;$('#switch-btn').focus()};
@@ -86,7 +87,7 @@ document.body.classList.toggle('dark',localStorage.getItem('meter-dark')==='1');
 if(demo)window.addEventListener('storage',()=>load());
 function refreshLive(){
   load();
-  api?.refreshCurrentQuota?.().catch(()=>{$('#freshness').title='官方同步失败，保留上次快照；稍后自动重试。'});
+  api?.refreshLocalData?.().catch(()=>{$('#freshness').title='本地读取失败，保留上次快照；稍后重试。'});
 }
 if(api){setInterval(()=>{if(!document.hidden)refreshLive()},10000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLive()});window.addEventListener('focus',refreshLive)}
-if(api||demo){refreshLive();api?.onStateChanged?.(event=>{load();if(event.scope==='accounts')api.refreshCurrentQuota?.().catch(()=>{})});if(api)api.getWidgetTopmost().then(s=>{$('#pin-btn').setAttribute('aria-pressed',String(s.pinned));$('#pin-btn').classList.toggle('active',s.pinned)}).catch(()=>{})}else notify('请从桌面工具打开悬浮窗');
+if(api||demo){refreshLive();api?.onStateChanged?.(event=>{load();if(event.scope==='accounts')api.refreshLocalData?.().catch(()=>{})});if(api)api.getWidgetTopmost().then(s=>{$('#pin-btn').setAttribute('aria-pressed',String(s.pinned));$('#pin-btn').classList.toggle('active',s.pinned)}).catch(()=>{})}else notify('请从桌面工具打开悬浮窗');

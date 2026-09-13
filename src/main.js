@@ -998,7 +998,6 @@ function normalizePublicAccount(account, activeId, currentIdentityKey) {
     lastSwitchedAt: account.lastSwitchedAt ?? null,
     quotaSnapshot,
     quotaSnapshotUpdatedAt: quotaSnapshot?.checkedAt ?? null,
-    officialQuotaCheckedAt: account.officialQuotaSnapshot?.checkedAt ?? null,
     isActive: !!currentIdentityKey && key === currentIdentityKey,
   };
 }
@@ -1050,11 +1049,14 @@ async function currentState() {
 }
 
 function refreshOfficialAccount(accountId) { return officialRefresh.request(accountId); }
-async function refreshCurrentQuota() {
-  if(switchInProgress||officialLogin.busy())return;
-  const scope=await dashboardScope();
-  if(!scope.hasCurrentAuth||!scope.account?.isActive||scope.account.needsReauth)return;
-  return officialRefresh.request(scope.accountId,{automatic:true,checkedAt:scope.account.officialQuotaCheckedAt});
+let localRefreshRequest=null;
+function refreshLocalData(){
+  if(localRefreshRequest)return localRefreshRequest;
+  localDataCache.invalidate();
+  localRefreshRequest=refreshQuotaSnapshotFromLocalLog().finally(()=>{
+    localRefreshRequest=null;broadcastStateChanged({scope:'local-data'});
+  });
+  return localRefreshRequest;
 }
 async function refreshOfficialAccountLocked(accountId) {
   return runAccountOperation(async () => {
@@ -4520,7 +4522,7 @@ function registerIpc() {
     return statisticsInFlight;
   });
   ipcMain.handle('account:refresh-official', (_event,id) => refreshOfficialAccount(id));
-  ipcMain.handle('quota:refresh-current', () => refreshCurrentQuota());
+  ipcMain.handle('data:refresh-local', () => refreshLocalData());
   ipcMain.handle('login:start', (_event, name) => {
     if (switchInProgress) throw new Error('请等待切换完成。');
     return officialLogin.start(name);
