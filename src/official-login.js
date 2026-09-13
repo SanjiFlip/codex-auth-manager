@@ -4,13 +4,36 @@ const { spawn, execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const execute = promisify(execFile);
 
-async function resolveCli() {
-  const { stdout } = await execute('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '(Get-Command codex -ErrorAction Stop).Source'], { windowsHide: true, timeout: 10000 });
-  const entry = stdout.trim();
-  if (entry.toLowerCase().endsWith('.exe')) return { command: entry, args: [] };
-  const js = path.join(path.dirname(entry), 'node_modules', '@openai', 'codex', 'bin', 'codex.js');
-  await fs.access(js);
-  return { command: process.execPath, args: [js], node: true };
+const {createRequire}=require('node:module');
+async function isFile(file){try{return (await fs.stat(file)).isFile()}catch{return false}}
+async function nativeFromPackage(root,arch){
+  const target=arch==='arm64'?'aarch64-pc-windows-msvc':arch==='x64'?'x86_64-pc-windows-msvc':null;
+  if(!target)throw new Error('不支持当前 Codex CLI 架构。');
+  const roots=[];
+  try{
+    const requirePackage=createRequire(path.join(root,'package.json'));
+    roots.push(path.join(path.dirname(requirePackage.resolve('@openai/codex-win32-'+arch+'/package.json')),'vendor'));
+  }catch{}
+  roots.push(path.join(root,'vendor'));
+  for(const vendor of roots)for(const folder of ['bin','codex']){
+    const executable=path.join(vendor,target,folder,'codex.exe');
+    if(await isFile(executable))return {command:executable,args:[]};
+  }
+  throw new Error('未找到 Codex 原生程序，请重新安装完整的 Codex CLI 后重试。');
+}
+async function resolveCli({env=process.env,arch=process.arch}={}) {
+  const value=Object.entries(env).find(([key])=>key.toLowerCase()==='path')?.[1]||'';
+  for(const raw of value.split(path.delimiter)){
+    const directory=raw.trim().replace(/^"|"$/g,'');if(!directory||!path.isAbsolute(directory))continue;
+    const executable=path.join(directory,'codex.exe');
+    if(await isFile(executable))return {command:executable,args:[]};
+    for(const extension of ['cmd','ps1','bat']){
+      if(!await isFile(path.join(directory,'codex.'+extension)))continue;
+      const root=path.join(directory,'node_modules','@openai','codex');
+      return nativeFromPackage(await fs.realpath(root).catch(()=>root),arch);
+    }
+  }
+  throw new Error('未找到 Codex 原生 CLI，请安装后重新打开管理工具。');
 }
 
 // Only the official authorization URL is exposed, never arbitrary CLI output.
@@ -44,8 +67,7 @@ function createLogin({ root, save, report = () => {}, resolve = resolveCli, spaw
         const env = { ...process.env, CODEX_HOME: directory };
         delete env.OPENAI_API_KEY;
         delete env.CODEX_ACCESS_TOKEN;
-        if (cli.node) env.ELECTRON_RUN_AS_NODE = '1';
-        const child = spawnProcess(cli.command, [...cli.args, 'login', '-c', 'cli_auth_credentials_store="file"'], { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawnProcess(cli.command, [...cli.args, 'login', '-c', 'cli_auth_credentials_store="file"'], { env, windowsHide: true, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
         session.child = child;
         session.phase = 'waiting';
         publish({ phase: 'waiting' });

@@ -21,8 +21,7 @@ function normalizeOfficialAccount(accountResult, limitsResult, checkedAt=new Dat
 async function queryOfficialAccount(home,{resolve=resolveCli,spawnProcess=spawn}={}) {
   const cli=await resolve();
   const env={...process.env,CODEX_HOME:home};delete env.OPENAI_API_KEY;delete env.CODEX_ACCESS_TOKEN;
-  if(cli.node)env.ELECTRON_RUN_AS_NODE='1';
-  const child=spawnProcess(cli.command,[...cli.args,'app-server','--listen','stdio://','-c','cli_auth_credentials_store="file"'],{env,windowsHide:true,stdio:['pipe','pipe','pipe']});
+  const child=spawnProcess(cli.command,[...cli.args,'app-server','--listen','stdio://','-c','cli_auth_credentials_store="file"'],{env,windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
   const childClosed=new Promise(resolve=>{child.once('close',resolve);child.once('error',resolve)});
   const pending=new Map();let nextId=0,closed=false;
   child.stderr.resume();
