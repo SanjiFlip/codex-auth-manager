@@ -1,4 +1,4 @@
-# Codex Auth Manager 0.3.3
+# Codex Auth Manager 0.3.4
 
 Windows Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，重新设计浅灰玻璃与系统蓝主题与 Codex Meter 悬浮窗。
 
@@ -6,7 +6,7 @@ Windows Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAut
 
 ## 下载 Windows 安装包
 
-[下载 0.3.3 Windows x64 安装包](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.3.3/Codex-Auth-Manager-Setup-0.3.3-x64.exe) · [发布说明与验证信息](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.3.3)
+[下载 0.3.4 Windows x64 安装包](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.3.4/Codex-Auth-Manager-Setup-0.3.4-x64.exe) · [发布说明与验证信息](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.3.4)
 
 此版本为未签名预览版。更新时先退出旧版 Codex Auth Manager，再运行安装程序并选择原安装目录。
 
@@ -23,12 +23,20 @@ npm start
 
 - 演示：`npm run demo`，使用独立演示数据，没有真实账号 IPC。
 - 构建安装包：`npm run dist`，输出到 `release/`。
-- 安装：构建后运行 `release/Codex Auth Manager Setup 0.3.3.exe`；更新时先退出旧版管理工具，再选择原安装目录。
+- 安装：构建后运行 `release/Codex Auth Manager Setup 0.3.4.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
 
 添加账号与查询官方额度需要本机 Codex CLI；开发机验证版本为 `codex-cli 0.154.0`。本版优先支持 Windows Store / MSIX Codex 桌面端。
+
+## 0.3.4 自动刷新修复
+
+- 本地会话 / 日志变化经过约 2.5 秒合并通知后同步刷新主界面与悬浮窗用量；可见窗口每 10 秒补查，显示或重新聚焦时也会刷新。
+- 当前已保存账号的官方额度每分钟补查一次，两个窗口共用请求；失败保留旧快照并等待下次重试。后台补查不锁定账号选择。
+- 官方手动刷新完成后通知两个窗口；较新的本地额度按记录时间覆盖旧官方窗口，修正本地恢复时间的秒 / 毫秒转换。
+- 手动刷新时额度和本机用量分别处理，网络失败不会阻止本机用量更新；保留待切换账号与搜索输入焦点。
+- 这不是服务端实时推送。显示速度仍取决于 Codex 写入日志、官方接口响应及本机读取耗时；非当前账号仍通过单账号或批量按钮刷新。
 
 ## 0.3.3 标题栏与图标修复
 
@@ -91,6 +99,7 @@ Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供
 npm run check
 npm test
 node_modules/.bin/electron.cmd scripts/smoke-electron.js
+node_modules/.bin/electron.cmd scripts/realtime-smoke.js
 npm run dist
 node scripts/packaged-smoke.js
 ```

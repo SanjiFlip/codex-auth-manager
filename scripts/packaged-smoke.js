@@ -8,6 +8,11 @@ const auth=JSON.stringify({auth_mode:'chatgpt',tokens:{access_token:jwt({sub:'te
 fs.writeFileSync(path.join(home,'auth.json'),auth);fs.writeFileSync(path.join(home,'config.toml'),'cli_auth_credentials_store = "file"\n');
 const exe=path.resolve('release/win-unpacked/Codex Auth Manager.exe'),port=19337;
 const env={...process.env,CODEX_HOME:home,CAM_DATA_ROOT:path.join(temp,'vault')};delete env.ELECTRON_RUN_AS_NODE;
+// Place a synthetic CLI first on PATH: packaged auto-refresh must never query real accounts.
+const cliRoot=path.join(temp,'cli'),cliScript=path.join(cliRoot,'node_modules','@openai','codex','bin','codex.js');
+fs.mkdirSync(path.dirname(cliScript),{recursive:true});fs.writeFileSync(path.join(cliRoot,'codex.cmd'),'@echo off\r\n');
+fs.writeFileSync(cliScript,`const fs=require('node:fs');const rl=require('node:readline').createInterface({input:process.stdin});rl.on('line',line=>{const m=JSON.parse(line);if(m.id===undefined)return;let result={};if(m.method==='account/read')result={account:{type:'chatgpt',email:'test@example.invalid',planType:'prolite'}};if(m.method==='account/rateLimits/read'){result={rateLimits:{planType:'prolite'}};fs.writeFileSync(${JSON.stringify(path.join(temp,'queried'))},'synthetic');}process.stdout.write(JSON.stringify({id:m.id,result})+'\\n')});`);
+const pathKey=Object.keys(env).find(k=>k.toLowerCase()==='path')||'Path';env[pathKey]=cliRoot+path.delimiter+(env[pathKey]||'');
 const child=spawn(exe,[`--user-data-dir=${path.join(temp,'profile')}`,`--remote-debugging-port=${port}`],{env,windowsHide:true,stdio:'ignore'});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const sockets=[];
@@ -27,7 +32,7 @@ async function connect(target){
     for(let i=0;i<60;i++){if(await main.eval('!!window.codexAuth && !!document.querySelector("h1")'))break;await sleep(200)}
     const state=await main.eval('window.codexAuth.importCurrent("Packaged test account")');
     assert.equal(state.settings.proFiveHourEnabled,false);
-    assert.equal(state.version,'0.3.3');assert.equal(state.accounts[0].planType,'prolite');
+    assert.equal(state.version,'0.3.4');assert.equal(state.accounts[0].planType,'prolite');
     assert.ok(!JSON.stringify(state).includes('SYNTHETIC-PACKAGED-TEST'));
     assert.equal(state.storeRoot,path.join(temp,'vault'));
     assert.equal(await main.eval('window.planLabel("prolite")'),'Pro 5x');
@@ -57,9 +62,11 @@ async function connect(target){
     const shot=await meter.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync('output/playwright/packaged-meter.png',Buffer.from(shot.data,'base64'));
     const mainShot=await main.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync('output/playwright/packaged-main.png',Buffer.from(mainShot.data,'base64'));
     await main.eval('window.codexAuth.hideWidget()');
+    for(let i=0;i<100&&!fs.existsSync(path.join(temp,'queried'));i++)await sleep(100);
+    assert.ok(fs.existsSync(path.join(temp,'queried')),'Packaged automatic refresh invokes isolated synthetic CLI');
     assert.equal(fs.readFileSync(path.join(home,'auth.json'),'utf8'),auth);
     assert.ok(fs.existsSync('release/win-unpacked/resources/app.asar.unpacked/src/windows-codex.ps1'));
-    console.log('PACKAGED PASS: EXE 0.3.3 startup, isolated vault, real IPC/DPAPI, Pro 5x, shared theme, native meter, pin, missing quota, unpacked Windows helper, current auth unchanged.');
+    console.log('PACKAGED PASS: EXE 0.3.4 startup, isolated vault, real IPC/DPAPI, Pro 5x, shared theme, native meter, pin, missing quota, unpacked Windows helper, current auth unchanged.');
     await main.eval('window.close()').catch(()=>{});
   }finally{for(const socket of sockets)socket.close();if(child.exitCode===null)child.kill();}
 })().catch(e=>{console.error('PACKAGED FAIL:',e.message);process.exitCode=1});

@@ -17,7 +17,7 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp
 const $ = selector => document.querySelector(selector);
 const isDemo = !window.codexAuth && new URLSearchParams(location.search).get('demo') === '1';
 let state = {accounts:[], settings:{}, current:null}, page='accounts', filter='all', search='', busy=false, loginActive=false;
-let statistics=null, statisticsLoading=false;
+let statistics=null, statisticsLoading=false,liveReading=false,livePending=false,liveEpoch=0;
 const usageStats=window.UsageStatistics;
 let loginState={phase:'idle'}, dashboard=null, toastTimer;
 const events=[];
@@ -108,15 +108,33 @@ function renderSettings() {
   $('#autostart').onchange=e=>run(async()=>{state=await api.updateSettings({launchAtLogin:e.target.checked});render()});
 }
 function render() {
+  const focused=document.activeElement?.matches('#content input')?document.activeElement:null;
+  const focus=focused?{id:focused.id,start:focused.selectionStart,end:focused.selectionEnd}:null;
   if(renderedPage!==page){$('.page-scroll').scrollTop=0;renderedPage=page}
   $('#nav-count').textContent=state.accounts.length;
   document.querySelectorAll('[data-page]').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
   $('#breadcrumb').textContent={accounts:'账号管理',usage:'用量概览',quotas:'订阅额度',diagnostics:'环境体检',activity:'操作记录',settings:'应用设置'}[page];
   if(page==='accounts')renderAccounts(); else if(page==='usage')renderUsage(); else if(page==='settings')renderSettings(); else if(page==='quotas')renderQuotas(); else if(page==='diagnostics')renderDiagnostics();
   else $('#content').innerHTML=heading('操作记录','记录本次工具会话中的操作，不记录密码或令牌。')+`<div class="panel"><h2>本次会话</h2>${events.length?events.map(e=>`<div class="log-entry"><time>${escape(e.time)}</time><span>${escape(e.message)}</span></div>`).join(''):'<p class="help-text">暂时没有操作。切换和账户管理结果会出现在这里。</p>'}</div>`;
+  if(focus){const input=document.getElementById(focus.id);if(input){input.focus({preventScroll:true});if(focus.start!==null)input.setSelectionRange(focus.start,focus.end)}}
 }
 async function refresh() { state=await api.getState(); render(); }
-async function run(task) { if(busy)return; busy=true; try{await task()}catch(e){toast(e.message||'操作失败');log('操作失败：'+(e.message||'未知错误'))}finally{busy=false} }
+async function refreshLive(){
+  if(busy||loginActive||liveReading){livePending=true;return}
+  liveReading=true;const epoch=liveEpoch;
+  try{
+    const [next,nextUsage]=await Promise.all([api.getState(),api.getStatistics()]);
+    if(busy||loginActive||epoch!==liveEpoch){livePending=true;return}
+    state=next;statistics=nextUsage;
+    if(['accounts','usage','quotas'].includes(page))render();
+  }catch(e){toast('自动刷新失败：'+e.message)}
+  finally{liveReading=false;if(livePending&&!busy&&!loginActive){livePending=false;refreshLive()}}
+}
+function refreshOfficialInBackground(){
+  api.refreshCurrentQuota?.().catch(()=>{const status=$('.status-pill');status.title='官方同步失败，保留上次快照；稍后自动重试。'});
+}
+function liveTick(){refreshLive();refreshOfficialInBackground()}
+async function run(task) { if(busy)return; busy=true;liveEpoch++; try{await task()}catch(e){toast(e.message||'操作失败');log('操作失败：'+(e.message||'未知错误'))}finally{busy=false;if(livePending){livePending=false;refreshLive()}} }
 function modal(title,body,actions) { const el=$('#modal'); el.innerHTML=`<div class="modal-header"><h2 id="modal-title">${title}</h2><button class="close-btn" data-action="close" aria-label="关闭">×</button></div>${body}<div class="modal-actions">${actions}</div>`; if(!el.open)el.showModal(); }
 async function closeModal() { if(loginActive){await api.cancelLogin();loginActive=false;} $('#modal').close(); }
 function loginView(status) {
@@ -176,9 +194,10 @@ if(api){
   api.onStateChanged?.(event=>{
     if(event.scope==='login')loginView(event);
     else if(event.scope==='switch'){state.switchStatus=event;if(page==='accounts')renderAccounts()}
-    else if(!busy&&!loginActive)refresh().catch(e=>toast(e.message));
+    else {refreshLive();if(event.scope==='accounts')refreshOfficialInBackground()}
   });
-  refresh().then(()=>loadStatistics()).catch(e=>{render();toast('无法加载账号：'+e.message)});
+  refresh().then(()=>{loadStatistics();refreshOfficialInBackground()}).catch(e=>{render();toast('无法加载账号：'+e.message)});
+  if(!isDemo){setInterval(()=>{if(!document.hidden)liveTick()},10000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)liveTick()});window.addEventListener('focus',liveTick)}
 }else{
   render();toast('请通过桌面程序打开，或使用 ?demo=1 查看演示。');
 }

@@ -96,6 +96,10 @@ const WIDGET_DOCK_COLLAPSE_RETRY_LIMIT = 8;
 const ATOMIC_TEMP_MAX_AGE_MS = 60 * 60 * 1000;
 const AUTH_BACKUP_RETENTION_COUNT = 60;
 const localDataCache = createLocalDataCache();
+const {displaySnapshot}=require('./quota/display-snapshot');
+const {createOfficialRefresh}=require('./official-refresh');
+const officialRefresh=createOfficialRefresh({refresh:refreshOfficialAccountLocked});
+let statisticsInFlight=null;
 
 const { runSwitch } = require('./switch-lifecycle');
 const windowsCodex = require('./windows-codex');
@@ -965,6 +969,7 @@ function normalizePublicQuotaSnapshot(snapshot) {
 }
 
 function normalizePublicAccount(account, activeId, currentIdentityKey) {
+  const quotaSnapshot=displaySnapshot(account.officialQuotaSnapshot,normalizePublicQuotaSnapshot(account.quotaSnapshot));
   const key = identityKey(account.identity ?? {});
   const expiresAtMs = new Date(account.accessTokenExpiresAt ?? "").getTime();
   const accessTokenExpired = Number.isFinite(expiresAtMs)
@@ -991,8 +996,9 @@ function normalizePublicAccount(account, activeId, currentIdentityKey) {
     reauthMarkedAt: account.reauthMarkedAt ?? null,
     lastSyncedAt: account.lastSyncedAt ?? null,
     lastSwitchedAt: account.lastSwitchedAt ?? null,
-    quotaSnapshot: account.officialQuotaSnapshot ?? normalizePublicQuotaSnapshot(account.quotaSnapshot),
-    quotaSnapshotUpdatedAt: account.officialQuotaSnapshot?.checkedAt ?? account.quotaSnapshotUpdatedAt ?? null,
+    quotaSnapshot,
+    quotaSnapshotUpdatedAt: quotaSnapshot?.checkedAt ?? null,
+    officialQuotaCheckedAt: account.officialQuotaSnapshot?.checkedAt ?? null,
     isActive: !!currentIdentityKey && key === currentIdentityKey,
   };
 }
@@ -1043,7 +1049,14 @@ async function currentState() {
   };
 }
 
-async function refreshOfficialAccount(accountId) {
+function refreshOfficialAccount(accountId) { return officialRefresh.request(accountId); }
+async function refreshCurrentQuota() {
+  if(switchInProgress||officialLogin.busy())return;
+  const scope=await dashboardScope();
+  if(!scope.hasCurrentAuth||!scope.account?.isActive||scope.account.needsReauth)return;
+  return officialRefresh.request(scope.accountId,{automatic:true,checkedAt:scope.account.officialQuotaCheckedAt});
+}
+async function refreshOfficialAccountLocked(accountId) {
   return runAccountOperation(async () => {
     if (officialLogin.busy()) throw new Error('请先完成账号添加。');
     const index=await readIndex();
@@ -1077,6 +1090,7 @@ async function refreshOfficialAccount(accountId) {
         if(details){item.officialPlanType=details.planType;item.officialPlanCheckedAt=details.quota.checkedAt;item.officialQuotaSnapshot=details.quota;}
       });
       if(error)throw error;
+      broadcastStateChanged({scope:"quota"});
       return currentState();
     }finally{if(temp)await fs.rm(temp,{recursive:true,force:true,maxRetries:8,retryDelay:200});}
   });
@@ -1450,6 +1464,7 @@ function scheduleLocalLogRefresh() {
   localLogRefreshTimer = setTimeout(() => {
     localLogRefreshTimer = null;
     localDataCache.invalidate();
+    broadcastStateChanged({scope:"local-data"});
     refreshQuotaSnapshotFromLocalLog().catch(() => {});
   }, 2500);
   localLogRefreshTimer.unref?.();
@@ -4499,9 +4514,13 @@ function registerIpc() {
   });
   ipcMain.handle('statistics:get', async () => {
     const since=new Date();since.setHours(0,0,0,0);since.setDate(since.getDate()-6);
-    return readLocalUsage({since:since.toISOString()});
+    if(!statisticsInFlight){
+      statisticsInFlight=readLocalUsage({since:since.toISOString()}).finally(()=>{statisticsInFlight=null});
+    }
+    return statisticsInFlight;
   });
   ipcMain.handle('account:refresh-official', (_event,id) => refreshOfficialAccount(id));
+  ipcMain.handle('quota:refresh-current', () => refreshCurrentQuota());
   ipcMain.handle('login:start', (_event, name) => {
     if (switchInProgress) throw new Error('请等待切换完成。');
     return officialLogin.start(name);

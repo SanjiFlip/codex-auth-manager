@@ -20,6 +20,7 @@ let failLaunch=false;
 lifecycle.discover=async()=>{lifecycleCalls.push('discover');return {synthetic:true}};
 lifecycle.stop=async()=>{lifecycleCalls.push('stop')};
 lifecycle.launch=async()=>{lifecycleCalls.push('launch');if(failLaunch)throw Error('synthetic startup failure')};
+require('../src/official-account').queryOfficialAccount=async()=>{throw Error('Synthetic offline service')};
 require('../src/main');
 setTimeout(()=>{console.error('SMOKE FAIL: timeout');app.exit(1)},45000);
 const deadline=Date.now()+30000;

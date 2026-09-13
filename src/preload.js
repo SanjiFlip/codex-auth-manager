@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld("codexAuth", {
   getVersion: () => ipcRenderer.invoke("app:version"),
   getStatistics: () => ipcRenderer.invoke('statistics:get'),
   refreshOfficial: id => ipcRenderer.invoke('account:refresh-official', id),
+  refreshCurrentQuota: () => ipcRenderer.invoke('quota:refresh-current'),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   getState: () => ipcRenderer.invoke("state:get"),
   importCurrent: (displayName) => ipcRenderer.invoke("account:import-current", displayName),

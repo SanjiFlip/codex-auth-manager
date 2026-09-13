@@ -48,7 +48,7 @@ async function queryOfficialAccount(home,{resolve=resolveCli,spawnProcess=spawn}
   try {
     return await Promise.race([
       (async()=>{
-        await rpc('initialize',{clientInfo:{name:'codex_auth_manager',title:'Codex Auth Manager',version:'0.3.3'}});
+        await rpc('initialize',{clientInfo:{name:'codex_auth_manager',title:'Codex Auth Manager',version:require('../package.json').version}});
         child.stdin.write(JSON.stringify({method:'initialized',params:{}})+'\n');
         const account=await rpc('account/read',{refreshToken:false});
         const limits=await rpc('account/rateLimits/read');
