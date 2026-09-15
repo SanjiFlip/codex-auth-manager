@@ -42,7 +42,7 @@ function loginUrl(text) {
   for (const match of text.matchAll(/https:\/\/[^\s<>"\x1b]+/g)) {
     try {
       const url = new URL(match[0]);
-      if (url.origin === 'https://auth.openai.com' && url.pathname === '/oauth/authorize') return url.href;
+      if (url.origin === 'https://auth.openai.com' && ['/oauth/authorize','/codex/device'].includes(url.pathname)) return url.href;
     } catch {}
   }
   return null;
@@ -52,6 +52,7 @@ function createLogin({ root, save, report = () => {}, resolve = resolveCli, spaw
   let active = null;
   let publicState = { phase: 'idle' };
   const publish = state => { publicState = state; report(state); };
+  const waiting = session => ({phase:'waiting',url:session.url,method:session.device?'device':'browser',deviceCode:session.deviceCode||null});
   async function open() {
     const session=active;
     if(!session||session.cancelled||session.phase!=='waiting'||!session.url)throw new Error('登录链接尚未准备好或已失效，请重新发起登录。');
@@ -60,10 +61,10 @@ function createLogin({ root, save, report = () => {}, resolve = resolveCli, spaw
       try{
         if(!openBrowser)throw new Error('Browser opener unavailable');
         await openBrowser(session.url);
-        if(active===session&&!session.cancelled&&session.phase==='waiting')publish({phase:'waiting',url:session.url,browserError:null});
+        if(active===session&&!session.cancelled&&session.phase==='waiting')publish({...waiting(session),browserError:null});
       }catch{
         const message='无法打开默认浏览器。请检查 Windows 默认浏览器设置，再点击“重新打开浏览器”。';
-        if(active===session&&!session.cancelled&&session.phase==='waiting')publish({phase:'waiting',url:session.url,browserError:message});
+        if(active===session&&!session.cancelled&&session.phase==='waiting')publish({...waiting(session),browserError:message});
         throw new Error(message);
       }
     })();
@@ -85,29 +86,36 @@ function createLogin({ root, save, report = () => {}, resolve = resolveCli, spaw
         const env = { ...process.env, CODEX_HOME: directory };
         delete env.OPENAI_API_KEY;
         delete env.CODEX_ACCESS_TOKEN;
-        const child = spawnProcess(cli.command, [...cli.args, 'login', '-c', 'cli_auth_credentials_store="file"'], { env, windowsHide: true, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
-        session.child = child;
-        session.phase = 'waiting';
-        publish({ phase: 'waiting' });
-        // Read complete lines independently: stream chunks can split an OAuth URL.
-        const readers=[child.stdout,child.stderr].map(input=>createInterface({input}));
-        const onLine = line => {
-          const url = loginUrl(line.replace(/\x1b\[[0-9;]*m/g,''));
-          if(!url||session.cancelled||session.phase!=='waiting'||session.url)return;
-          session.url=url;
-          publish({phase:'waiting',url});
-          // The CLI's own browser launch may fail when hosted by a hidden process.
-          // Use Electron's desktop shell explicitly; repeated output cannot reopen it.
-          open().catch(()=>{});
-        };
-        readers.forEach(reader=>reader.on('line',onLine));
         session.timer = setTimeout(() => { cancel().catch(() => {}); }, 5 * 60 * 1000);
-        let code;
-        try{code = await new Promise((resolveExit, reject) => { child.once('error', reject); child.once('close', resolveExit); });}
-        finally{readers.forEach(reader=>reader.close());}
-        session.child = null;
+        async function attempt(device){
+          session.device=device;session.url=null;session.deviceCode=null;
+          const child=spawnProcess(cli.command,[...cli.args,'login',...(device?['--device-auth']:[]),'-c','cli_auth_credentials_store="file"'],{env,windowsHide:true,shell:false,stdio:['ignore','pipe','pipe']});
+          session.child=child;session.phase='waiting';publish(waiting(session));
+          let diagnostic='';
+          const readers=[child.stdout,child.stderr].map(input=>createInterface({input}));
+          readers.forEach(reader=>reader.on('line',raw=>{
+            const line=raw.replace(/\x1b\[[0-9;]*m/g,'');
+            diagnostic=(diagnostic+'\n'+line).slice(-16000);
+            if(session.cancelled||session.phase!=='waiting')return;
+            if(device&&/^[A-Z0-9]{4}-[A-Z0-9]{5}$/.test(line.trim())){
+              session.deviceCode=line.trim();publish({...waiting(session),browserError:publicState.browserError||null});
+            }
+            const url=loginUrl(line);
+            if(!url||session.url)return;
+            const expectedPath=device?'/codex/device':'/oauth/authorize';
+            if(new URL(url).pathname!==expectedPath)return;
+            session.url=url;publish(waiting(session));open().catch(()=>{});
+          }));
+          try{
+            const code=await new Promise((resolveExit,reject)=>{child.once('error',reject);child.once('close',resolveExit);});
+            return {code,portBlocked:/os error (10013|10048)|address already in use/i.test(diagnostic)};
+          }finally{readers.forEach(reader=>reader.close());session.child=null;}
+        }
+        let result=await attempt(false);
+        // Windows may reserve 1455 even with no listener. Device auth needs no local callback.
+        if(!session.cancelled&&result.code!==0&&result.portBlocked&&!session.url)result=await attempt(true);
         if (session.cancelled) return;
-        if (code !== 0) throw new Error('login failed');
+        if (result.code !== 0) throw new Error('login failed');
         if (session.cancelled) return;
         // Once saving starts cancellation is no longer presented as successful.
         session.phase = 'saving';

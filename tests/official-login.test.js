@@ -61,3 +61,21 @@ test('browser failure preserves login URL for explicit retry and never publishes
   await f.login.open();assert.equal(calls,2);assert.equal(f.login.state().browserError,null);
   await f.login.cancel();await assert.rejects(f.login.open(),/登录链接/);
 });
+
+test('reserved OAuth callback port falls back to device login and exposes its one-time code',async t=>{
+  const attempts=[],opened=[];
+  const f=await fixture(t,{spawnProcess:(cmd,args,options)=>{
+    const child=new EventEmitter();child.pid=98765;child.stdout=new PassThrough();child.stderr=new PassThrough();
+    attempts.push({args,options,child});return child;
+  },stopProcess:async child=>child.emit('close',1),openBrowser:async url=>opened.push(url)});
+  t.after(()=>f.login.cancel());await f.login.start('device test');await until(()=>attempts.length===1);
+  attempts[0].child.stderr.write('Error logging in: socket permission denied (os error 10013)\n');attempts[0].child.emit('close',1);
+  await until(()=>attempts.length===2);
+  assert.ok(attempts[1].args.includes('--device-auth'));
+  assert.equal(attempts[0].options.env.CODEX_HOME,attempts[1].options.env.CODEX_HOME);
+  attempts[1].child.stdout.write('https://auth.openai.com/codex/device\n\u001b[94mABCD-12345\u001b[0m\n');
+  await until(()=>f.login.state().deviceCode==='ABCD-12345');
+  assert.deepEqual(opened,['https://auth.openai.com/codex/device']);
+  assert.equal(f.login.state().method,'device');
+  await f.login.cancel();assert.equal(f.saves,0);
+});
