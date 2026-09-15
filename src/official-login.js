@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
 const { promisify } = require('node:util');
+const { createInterface } = require('node:readline');
 const execute = promisify(execFile);
 
 const {createRequire}=require('node:module');
@@ -47,10 +48,27 @@ function loginUrl(text) {
   return null;
 }
 
-function createLogin({ root, save, report = () => {}, resolve = resolveCli, spawnProcess = spawn, stopProcess, query } = {}) {
+function createLogin({ root, save, report = () => {}, resolve = resolveCli, spawnProcess = spawn, stopProcess, query, openBrowser } = {}) {
   let active = null;
   let publicState = { phase: 'idle' };
   const publish = state => { publicState = state; report(state); };
+  async function open() {
+    const session=active;
+    if(!session||session.cancelled||session.phase!=='waiting'||!session.url)throw new Error('登录链接尚未准备好或已失效，请重新发起登录。');
+    if(session.opening)return session.opening;
+    session.opening=(async()=>{
+      try{
+        if(!openBrowser)throw new Error('Browser opener unavailable');
+        await openBrowser(session.url);
+        if(active===session&&!session.cancelled&&session.phase==='waiting')publish({phase:'waiting',url:session.url,browserError:null});
+      }catch{
+        const message='无法打开默认浏览器。请检查 Windows 默认浏览器设置，再点击“重新打开浏览器”。';
+        if(active===session&&!session.cancelled&&session.phase==='waiting')publish({phase:'waiting',url:session.url,browserError:message});
+        throw new Error(message);
+      }
+    })();
+    try{return await session.opening}finally{session.opening=null}
+  }
   async function start(name) {
     if (active) throw new Error('已有登录正在进行，请完成或取消后再添加。');
     const session = { cancelled: false, child: null, timer: null, phase: 'starting' };
@@ -71,16 +89,22 @@ function createLogin({ root, save, report = () => {}, resolve = resolveCli, spaw
         session.child = child;
         session.phase = 'waiting';
         publish({ phase: 'waiting' });
-        let buffer = '';
-        const onOutput = chunk => {
-          buffer = (buffer + chunk.toString()).slice(-16000);
-          const url = loginUrl(buffer);
-          if (url && !session.cancelled) publish({ phase: 'waiting', url });
+        // Read complete lines independently: stream chunks can split an OAuth URL.
+        const readers=[child.stdout,child.stderr].map(input=>createInterface({input}));
+        const onLine = line => {
+          const url = loginUrl(line.replace(/\x1b\[[0-9;]*m/g,''));
+          if(!url||session.cancelled||session.phase!=='waiting'||session.url)return;
+          session.url=url;
+          publish({phase:'waiting',url});
+          // The CLI's own browser launch may fail when hosted by a hidden process.
+          // Use Electron's desktop shell explicitly; repeated output cannot reopen it.
+          open().catch(()=>{});
         };
-        child.stdout.on('data', onOutput);
-        child.stderr.on('data', onOutput);
+        readers.forEach(reader=>reader.on('line',onLine));
         session.timer = setTimeout(() => { cancel().catch(() => {}); }, 5 * 60 * 1000);
-        const code = await new Promise((resolveExit, reject) => { child.once('error', reject); child.once('close', resolveExit); });
+        let code;
+        try{code = await new Promise((resolveExit, reject) => { child.once('error', reject); child.once('close', resolveExit); });}
+        finally{readers.forEach(reader=>reader.close());}
         session.child = null;
         if (session.cancelled) return;
         if (code !== 0) throw new Error('login failed');
@@ -120,6 +144,6 @@ function createLogin({ root, save, report = () => {}, resolve = resolveCli, spaw
     await session.done;
     return publicState;
   }
-  return { start, cancel, state: () => publicState, busy: () => !!active };
+  return { start, cancel, open, state: () => publicState, busy: () => !!active };
 }
 module.exports = { createLogin, loginUrl, resolveCli };

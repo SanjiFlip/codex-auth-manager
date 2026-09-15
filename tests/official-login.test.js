@@ -12,12 +12,12 @@ test('only expected official OAuth URL is surfaced',()=>{
   assert.equal(loginUrl('https://auth.openai.com/other'),null);
   assert.equal(loginUrl('Open https://auth.openai.com/oauth/authorize?state=example'),'https://auth.openai.com/oauth/authorize?state=example');
 });
-async function fixture(t) {
+async function fixture(t, extra={}) {
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'cam-login-test-'));
   t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const child=new EventEmitter();child.pid=98765;child.stdout=new PassThrough();child.stderr=new PassThrough();
   let options,saves=0;const states=[];
-  const login=createLogin({root,resolve:async()=>({command:'fake-codex',args:[]}),spawnProcess:(cmd,args,opts)=>{options=opts;return child},stopProcess:async()=>child.emit('close',1),save:async()=>{saves++},report:s=>states.push(s)});
+  const login=createLogin({root,resolve:async()=>({command:'fake-codex',args:[]}),spawnProcess:(cmd,args,opts)=>{options=opts;return child},stopProcess:async()=>child.emit('close',1),save:async()=>{saves++},report:s=>states.push(s),...extra});
   return {root,child,login,states,get options(){return options},get saves(){return saves}};
 }
 async function until(predicate){for(let i=0;i<100;i++){if(predicate())return;await new Promise(r=>setTimeout(r,5))}throw Error('timed out')}
@@ -38,4 +38,26 @@ test('parallel login rejected and arbitrary CLI error output is not surfaced',as
   await assert.rejects(f.login.start('second'),/已有登录/);
   f.child.stderr.write('secret-token-for-test');f.child.emit('close',1);await until(()=>!f.login.busy());
   assert.equal(f.saves,0);assert.ok(!JSON.stringify(f.states).includes('secret-token-for-test'));
+});
+
+test('opens the complete official URL once across split and repeated CLI output',async t=>{
+  const opened=[];const f=await fixture(t,{openBrowser:async url=>opened.push(url)});
+  t.after(()=>f.login.cancel());await f.login.start('test');await until(()=>f.options);
+  f.child.stderr.write('Open https://auth.openai.com/oauth/authorize?state=');
+  await new Promise(r=>setTimeout(r,10));assert.equal(opened.length,0);
+  f.child.stderr.write('synthetic&client_id=test\n');
+  await until(()=>opened.length===1);
+  f.child.stderr.write('Open https://auth.openai.com/oauth/authorize?state=synthetic&client_id=test\n');
+  await new Promise(r=>setTimeout(r,10));assert.deepEqual(opened,['https://auth.openai.com/oauth/authorize?state=synthetic&client_id=test']);
+});
+
+test('browser failure preserves login URL for explicit retry and never publishes raw errors',async t=>{
+  let calls=0;const f=await fixture(t,{openBrowser:async()=>{if(++calls===1)throw Error('private system data')}});
+  t.after(()=>f.login.cancel());await f.login.start('test');await until(()=>f.options);
+  f.child.stdout.write('https://auth.openai.com/oauth/authorize?state=test\n');
+  await until(()=>f.login.state().browserError);
+  assert.equal(f.login.state().phase,'waiting');assert.ok(f.login.state().url);
+  assert.ok(!JSON.stringify(f.states).includes('private system data'));
+  await f.login.open();assert.equal(calls,2);assert.equal(f.login.state().browserError,null);
+  await f.login.cancel();await assert.rejects(f.login.open(),/登录链接/);
 });

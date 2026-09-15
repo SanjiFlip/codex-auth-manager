@@ -1,4 +1,4 @@
-# Codex Auth Manager 0.3.5
+# Codex Auth Manager 0.3.6
 
 Windows Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，重新设计浅灰玻璃与系统蓝主题与 Codex Meter 悬浮窗。
 
@@ -6,7 +6,7 @@ Windows Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAut
 
 ## 下载 Windows 安装包
 
-[下载 0.3.5 Windows x64 安装包](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.3.5/Codex-Auth-Manager-Setup-0.3.5-x64.exe) · [发布说明与验证信息](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.3.5)
+[下载 0.3.6 Windows x64 安装包](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.3.6/Codex-Auth-Manager-Setup-0.3.6-x64.exe) · [发布说明与验证信息](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.3.6)
 
 此版本为未签名预览版。更新时先退出旧版 Codex Auth Manager，再运行安装程序并选择原安装目录。
 
@@ -64,12 +64,19 @@ npm start
 
 - 演示：`npm run demo`，使用独立演示数据，没有真实账号 IPC。
 - 构建安装包：`npm run dist`，输出到 `release/`。
-- 安装：构建后运行 `release/Codex Auth Manager Setup 0.3.5.exe`；更新时先退出旧版管理工具，再选择原安装目录。
+- 安装：构建后运行 `release/Codex Auth Manager Setup 0.3.6.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
 
 添加账号与查询官方额度需要本机 Codex CLI；开发机验证版本为 `codex-cli 0.154.0`。本版优先支持 Windows Store / MSIX Codex 桌面端。
+
+## 0.3.6 添加账号浏览器修复
+
+- 收到完整官方授权链接后，由管理工具主动调用系统浏览器打开。
+- 分别按完整行解析 CLI 输出，避免链接被输出分段截断；重复输出不会触发管理工具重复打开。
+- 打开失败时保留登录会话并显示默认浏览器检查提示，可点击“重新打开浏览器”重试；取消或结束后禁用此按钮。
+- 27 项单元测试、源码与打包目录登录联动检查、实际 EXE 隔离检查通过；真人授权仍需实际环境验证。
 
 ## 0.3.5 本地同步与隐藏查询修复
 

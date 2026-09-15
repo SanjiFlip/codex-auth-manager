@@ -115,6 +115,7 @@ async function credentialMode() {
 }
 const officialLogin = createLogin({
   root: path.join(storeRoot(), 'pending-logins'),
+  openBrowser: url => shell.openExternal(url),
   report: status => broadcastStateChanged({ scope: 'login', ...status }),
   query: queryOfficialAccount,
   save: (content, name, details) => runAccountOperation(async () => {
@@ -4529,11 +4530,7 @@ function registerIpc() {
   });
   ipcMain.handle('login:cancel', () => officialLogin.cancel());
   ipcMain.handle('login:state', () => officialLogin.state());
-  ipcMain.handle('login:open', async () => {
-    const state = officialLogin.state();
-    if (state.phase !== 'waiting' || !state.url) throw new Error('登录链接尚未准备好。');
-    await shell.openExternal(state.url);
-  });
+  ipcMain.handle('login:open', () => officialLogin.open());
   ipcMain.handle('config:enable-file', () => runAccountOperation(async () => {
     if (await credentialMode() === 'invalid') throw new Error('配置文件无法解析，请先修复 config.toml。');
     await ensureCodexFileCredentialStore();

@@ -39,7 +39,7 @@ async function connect(target){
     for(let i=0;i<60;i++){if(await main.eval('!!window.codexAuth && !!document.querySelector("h1")'))break;await sleep(200)}
     const state=await main.eval('window.codexAuth.importCurrent("Packaged test account")');
     assert.equal(state.settings.proFiveHourEnabled,false);
-    assert.equal(state.version,'0.3.5');assert.equal(state.accounts[0].planType,'prolite');
+    assert.equal(state.version,'0.3.6');assert.equal(state.accounts[0].planType,'prolite');
     assert.ok(!JSON.stringify(state).includes('SYNTHETIC-PACKAGED-TEST'));
     assert.equal(state.storeRoot,path.join(temp,'vault'));
     assert.equal(await main.eval('window.planLabel("prolite")'),'Pro 5x');
@@ -77,7 +77,7 @@ async function connect(target){
     assert.equal(JSON.parse(fs.readFileSync(path.join(temp,'queried'))).consoleVisible,false,'Native quota process must have no visible console');
     assert.equal(fs.readFileSync(path.join(home,'auth.json'),'utf8'),auth);
     assert.ok(fs.existsSync('release/win-unpacked/resources/app.asar.unpacked/src/windows-codex.ps1'));
-    console.log('PACKAGED PASS: EXE 0.3.5 startup, isolated vault, real IPC/DPAPI, Pro 5x, shared theme, native meter, pin, missing quota, unpacked Windows helper, current auth unchanged.');
+    console.log('PACKAGED PASS: EXE 0.3.6 startup, isolated vault, real IPC/DPAPI, Pro 5x, shared theme, native meter, pin, missing quota, unpacked Windows helper, current auth unchanged.');
     await main.eval('window.close()').catch(()=>{});
   }finally{for(const socket of sockets)socket.close();if(child.exitCode===null)child.kill();}
 })().catch(e=>{console.error('PACKAGED FAIL:',e.message);process.exitCode=1});
