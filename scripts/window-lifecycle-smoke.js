@@ -12,6 +12,8 @@ const timer=setInterval(async()=>{
  if(!win||win.webContents.isLoading())return;clearInterval(timer);
  try{
   if(process.platform==='darwin'){const {safeStorage}=require('electron');assert.equal(safeStorage.isEncryptionAvailable(),true);assert.equal(safeStorage.decryptString(safeStorage.encryptString('synthetic-window-check')),'synthetic-window-check');}
+  await win.webContents.executeJavaScript('window.codexAuth.setWindowTheme(true)');
+  await win.webContents.executeJavaScript('window.codexAuth.setWindowTheme(false)');
   let unexpectedQuit=false;
   const guard=event=>{unexpectedQuit=true;event.preventDefault()};
   app.on('before-quit',guard);

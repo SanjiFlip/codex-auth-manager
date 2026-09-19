@@ -5,6 +5,7 @@ const {
   Tray,
   ipcMain,
   nativeImage,
+  nativeTheme,
   safeStorage,
   screen,
   shell,
@@ -488,6 +489,7 @@ function loginItemIdentityOptions() {
 }
 
 function applyLaunchAtLogin(enabled) {
+  if(isMac&&!app.isPackaged)return false;
   const openAtLogin = enabled === true;
   app.setLoginItemSettings({
     ...loginItemIdentityOptions(),
@@ -4464,7 +4466,8 @@ function handleWidgetPointerLeave() {
 function registerIpc() {
   ipcMain.handle('window:set-theme', (event, dark) => {
     const win=BrowserWindow.fromWebContents(event.sender);
-    if(win===mainWindow&&!win.isDestroyed())win.setTitleBarOverlay({color:dark===true?'#1c1c1e':'#f5f5f7',symbolColor:dark===true?'#aeaeb6':'#6e6e73',height:38});
+    if(isMac)nativeTheme.themeSource=dark===true?"dark":"light";
+    if(isWindows&&win===mainWindow&&!win.isDestroyed())win.setTitleBarOverlay({color:dark===true?'#1c1c1e':'#f5f5f7',symbolColor:dark===true?'#aeaeb6':'#6e6e73',height:38});
     return {ok:true};
   });
   ipcMain.handle('statistics:get', async () => {

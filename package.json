@@ -66,7 +66,7 @@
         "zip"
       ],
       "category": "public.app-category.developer-tools",
-      "icon": "src/ui/assets/manager.png",
+      "icon": "src/ui/assets/manager-mac.png",
       "identity": "-",
       "hardenedRuntime": false,
       "artifactName": "Codex-Auth-Manager-${version}-${arch}.${ext}",
