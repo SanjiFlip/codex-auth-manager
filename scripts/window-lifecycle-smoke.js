@@ -4,7 +4,8 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cam-window-smoke-'));
 process.env.CODEX_HOME=path.join(temp,'codex');fs.mkdirSync(process.env.CODEX_HOME);
 app.setPath('appData',temp);app.setPath('userData',path.join(temp,'profile'));
-require(process.argv.includes('--packaged') ? '../release/win-unpacked/resources/app.asar/src/main.js' : '../src/main');
+const archive=process.platform==='darwin'?`../release/${process.arch==='arm64'?'mac-arm64':'mac'}/Codex Auth Manager.app/Contents/Resources/app.asar/src/main.js`:'../release/win-unpacked/resources/app.asar/src/main.js';
+require(process.argv.includes('--packaged') ? archive : '../src/main');
 const timeout=setTimeout(()=>{console.error('WINDOW FAIL: timeout');app.exit(1)},30000);
 const timer=setInterval(async()=>{
  const win=BrowserWindow.getAllWindows().find(w=>!w.isDestroyed()&&w.webContents.getURL().includes('manager.html'));

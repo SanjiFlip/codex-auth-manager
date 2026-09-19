@@ -32,6 +32,6 @@ test('macOS resolves native CLI and npm wrapper without requiring GUI Node PATH'
  for(const arch of ['arm64','x64']){
   const pkg=path.join(root,arch),bin=path.join(pkg,'bin');await file(path.join(bin,'codex'),'#!/usr/bin/env node');
   const exe=path.join(pkg,'vendor',arch==='arm64'?'aarch64-apple-darwin':'x86_64-apple-darwin','codex','codex');await file(exe);
-  assert.deepEqual(await resolveCli({platform:'darwin',arch,env:{PATH:bin},home:root}),{command:exe,args:[]});
+  assert.deepEqual(await resolveCli({platform:'darwin',arch,env:{PATH:bin},home:root}),{command:await fs.realpath(exe),args:[]});
  }
 });

@@ -3,7 +3,7 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
 const {execFile}=require('node:child_process'),{promisify}=require('node:util');
 const execute=promisify(execFile);
 test('native mac fixture discovers, quits, relaunches and explicitly force quits',{skip:process.platform!=='darwin',timeout:90000},async()=>{
- const root=await fs.mkdtemp(path.join(os.tmpdir(),'cam-mac-native-'));
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'cam-mac-native-')));
  const bundle=path.join(root,'Codex.app'),contents=path.join(bundle,'Contents');
  await fs.mkdir(path.join(contents,'MacOS'),{recursive:true});
  await fs.writeFile(path.join(contents,'Info.plist'),`<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.openai.cam-fixture</string><key>CFBundleName</key><string>Codex</string><key>CFBundleExecutable</key><string>Codex</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>`);
