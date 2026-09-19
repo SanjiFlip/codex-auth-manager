@@ -1,9 +1,9 @@
 {
   "name": "codex-auth-manager",
   "productName": "Codex Auth Manager",
-  "version": "0.3.9",
+  "version": "0.4.0",
   "private": true,
-  "description": "A local Windows desktop manager for Codex accounts",
+  "description": "A local Windows and macOS desktop manager for Codex accounts",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -23,7 +23,8 @@
     "test": "node --test tests/*.test.js",
     "check": "node scripts/check.js",
     "pack": "electron-builder --win dir --publish never",
-    "dist": "electron-builder --win nsis --publish never"
+    "dist": "electron-builder --win nsis --publish never",
+    "dist:mac": "electron-builder --mac dmg zip --arm64 --x64 --publish never"
   },
   "dependencies": {
     "@iarna/toml": "2.2.5"
@@ -58,6 +59,18 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "src/ui/assets/manager.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "artifactName": "Codex-Auth-Manager-${version}-${arch}.${ext}",
+      "minimumSystemVersion": "14.0"
     }
   }
 }

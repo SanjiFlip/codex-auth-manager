@@ -1,14 +1,18 @@
-# Codex Auth Manager 0.3.9
+# Codex Auth Manager 0.4.0
 
-Windows Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，重新设计浅灰玻璃与系统蓝主题与 Codex Meter 悬浮窗。
+Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，重新设计浅灰玻璃与系统蓝主题与 Codex Meter 悬浮窗。
 
 > 非 OpenAI 官方产品。当前为未签名预览版；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
-## 下载 Windows 安装包
+## 下载安装包
 
-[下载 0.3.9 Windows x64 安装包](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.3.9/Codex-Auth-Manager-Setup-0.3.9-x64.exe) · [发布说明与验证信息](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.3.9)
+[下载 0.4.0 Windows x64 安装包](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.0/Codex-Auth-Manager-Setup-0.4.0-x64.exe) · [发布说明与验证信息](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.4.0)
 
-此版本为未签名预览版。更新时先退出旧版 Codex Auth Manager，再运行安装程序并选择原安装目录。
+[下载 macOS Apple Silicon（M 系列）DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.0/Codex-Auth-Manager-0.4.0-arm64.dmg) · [下载 macOS Intel DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.0/Codex-Auth-Manager-0.4.0-x64.dmg)
+
+Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple Developer ID 签名和公证。Mac 下载后把应用拖到 Applications；若被 Gatekeeper 拦截，请在确认下载来源后使用系统「隐私与安全性」中的打开选项，不要关闭系统安全保护。
+
+此版本为预览版。更新时先退出旧版 Codex Auth Manager，再运行安装程序并选择原安装目录。
 
 ## 界面与功能预览
 
@@ -53,7 +57,7 @@ Pro 关闭五小时展示时以周额度为主仪表；Plus 展示五小时与�
 
 ## 从源码运行
 
-需要 Windows 10 / 11、Node.js 22 或更高版本、npm 与 Git。
+需要 Windows 10 / 11 或 macOS 14+、Node.js 22 或更高版本、npm 与 Git。
 
 ```powershell
 git clone https://github.com/SanjiFlip/codex-auth-manager.git
@@ -64,12 +68,23 @@ npm start
 
 - 演示：`npm run demo`，使用独立演示数据，没有真实账号 IPC。
 - 构建安装包：`npm run dist`，输出到 `release/`。
-- 安装：构建后运行 `release/Codex Auth Manager Setup 0.3.9.exe`；更新时先退出旧版管理工具，再选择原安装目录。
+- 安装：构建后运行 `release/Codex Auth Manager Setup 0.4.0.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
 
-添加账号与查询官方额度需要本机 Codex CLI；开发机验证版本为 `codex-cli 0.154.0`。本版优先支持 Windows Store / MSIX Codex 桌面端。
+添加账号与查询官方额度需要本机 Codex CLI；开发机验证版本为 `codex-cli 0.154.0`。Windows 支持 Store / MSIX 安装；macOS 支持安装在 /Applications 或 ~/Applications 下的 Codex.app / ChatGPT.app。
+
+## 0.4.0 macOS 支持
+
+- Apple Silicon / Intel 两种 DMG、ZIP 构建；管理工具最低支持 macOS 14。
+- 使用 macOS Keychain 加密账号凭据。Windows DPAPI 文件不能直接复制到 Mac，请使用加密导出 / 导入功能迁移。
+- 自动发现 /Applications 或 ~/Applications 中的 Codex / ChatGPT；先请求正常退出并检查主进程及 helper，再写凭据和重启。无法退出时可保存任务后明确确认结束后台。
+- 查找 PATH、/opt/homebrew/bin、/usr/local/bin、~/.local/bin 中的 Codex CLI；支持 Homebrew 原生程序和 npm 安装的原生二进制。Finder 启动不会继承交互式 shell 配置，仅装在 nvm 私有目录的 CLI 需要加入可见 PATH 或安装到上述目录。
+- 适配 macOS 红绿灯按钮、应用菜单、⌘Q、开机启动及菜单栏图标；关闭主窗口继续驻留，菜单栏菜单可恢复或完全退出。
+- 在 Mac 上运行 `npm run dist:mac` 构建两个架构。CI 在两个架构各自的 macOS runner 上测试并打包；没有真实用户在线切换验证时，不将模拟测试等同于在线身份验证。
+
+参考：[官方桌面应用文档](https://learn.chatgpt.com/docs/app)、[electron-builder v26 macOS 配置](https://www.electron.build/v26/docs/mac/)。
 
 ## 0.3.9 主窗口关闭行为修复
 
@@ -159,7 +174,7 @@ Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供
 
 ## 数据与限制
 
-- 独立账户库：`%APPDATA%/codex-auth-manager`；DPAPI 加密依赖相同 Windows 用户。索引含邮箱、名称等身份元数据。
+- 独立账户库：`%APPDATA%/codex-auth-manager`；DPAPI 加密依赖相同 Windows 用户。Mac 账户库位于 `~/Library/Application Support/codex-auth-manager`，Keychain 加密依赖当前 macOS 用户。索引含邮箱、名称等身份元数据。
 - Codex 文件模式的 auth.json 仍是敏感凭据；前端不会收到原始 access / refresh token。
 - 登录完成与查询退出后清理临时凭据；在线查询由官方 CLI app-server 发起，不使用第三方额度代理。
 - 删除仅删除本工具保存记录，保留当前 Codex 登录。加密迁移文件采用独立迁移密码。

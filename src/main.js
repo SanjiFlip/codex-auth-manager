@@ -60,7 +60,6 @@ let selectedLogsDb = null;
 let selectedLogsDbAt = 0;
 const { createLocalDataCache } = require("./quota/local-data-cache");
 const {
-  MAC_CODEX_APP_NAMES,
   credentialFileExtension,
   credentialProtectionLabel,
   isEncryptedCredentialBackup,
@@ -102,7 +101,7 @@ const officialRefresh=createOfficialRefresh({refresh:refreshOfficialAccountLocke
 let statisticsInFlight=null;
 
 const { runSwitch } = require('./switch-lifecycle');
-const windowsCodex = require('./windows-codex');
+const desktopCodex = require(process.platform === 'darwin' ? './mac-codex' : './windows-codex');
 const { createLogin } = require('./official-login');
 const { queryOfficialAccount } = require('./official-account');
 const TOML = require('@iarna/toml');
@@ -834,6 +833,7 @@ async function localDiagnostics(index, current) {
   if (!detectedCodexVersion) {
     detectedCodexVersion = (async () => {
       try {
+        if (isMac) return (await desktopCodex.discover()).version;
         if (isWindows) {
           const output = await runPowerShell("$p = Get-AppxPackage -Name 'OpenAI.Codex' -ErrorAction SilentlyContinue | Sort-Object Version -Descending | Select-Object -First 1; if ($p) { $p.Version.ToString() }");
           return String(output).trim().slice(0,80) || null;
@@ -1581,9 +1581,9 @@ async function switchAccountLocked(accountId, options = {}) {
         if (!account) throw new Error('目标账号不存在。');
         const auth = validateAuthJson(await loadAccountAuth(accountId));
         if (identityKey(auth.identity) !== identityKey(account.identity)) throw new Error('目标账号与凭据不一致，请重新添加。');
-        return { launcher: await windowsCodex.discover() };
+        return { launcher: await desktopCodex.discover() };
       },
-      stop: () => windowsCodex.stop({ force: options?.forceClose === true }),
+      stop: target => desktopCodex.stop({ force: options?.forceClose === true, launcher: target.launcher }),
       capture: async () => {
         let raw = null;
         try { raw = await fs.readFile(authPath(), 'utf8'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -1621,7 +1621,7 @@ async function switchAccountLocked(accountId, options = {}) {
           index.activeAccountId = target.id;
         });
       },
-      launch: target => windowsCodex.launch(target.launcher),
+      launch: target => desktopCodex.launch(target.launcher),
       rollback: async snapshot => {
         if (snapshot.auth === null) await fs.rm(authPath(), { force: true });
         else await atomicWriteAuth(snapshot.auth);
@@ -1711,57 +1711,10 @@ async function restartCodexAppQueued() {
   return runAccountOperation(() => restartCodexApp());
 }
 
-function wait(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-async function macProcessIsRunning(processName) {
-  try {
-    await runProcess("/usr/bin/pgrep", ["-x", processName]);
-    return true;
-  } catch (error) {
-    if (error?.exitCode === 1) return false;
-    throw error;
-  }
-}
-
-async function restartCodexAppMac() {
-  for (const processName of MAC_CODEX_APP_NAMES) {
-    if (!(await macProcessIsRunning(processName))) continue;
-    try {
-      await runProcess("/usr/bin/pkill", ["-x", processName]);
-    } catch (error) {
-      if (error?.exitCode !== 1) throw error;
-    }
-  }
-
-  const deadline = Date.now() + 10000;
-  while (Date.now() < deadline) {
-    const running = await Promise.all(MAC_CODEX_APP_NAMES.map(macProcessIsRunning));
-    if (!running.some(Boolean)) break;
-    await wait(150);
-  }
-  const stillRunning = await Promise.all(MAC_CODEX_APP_NAMES.map(macProcessIsRunning));
-  if (stillRunning.some(Boolean)) {
-    throw new Error("Codex App did not fully exit before restart.");
-  }
-
-  const launchErrors = [];
-  for (const appName of MAC_CODEX_APP_NAMES) {
-    try {
-      await runProcess("/usr/bin/open", ["-a", appName]);
-      return { ok: true, application: appName };
-    } catch (error) {
-      launchErrors.push(error.message);
-    }
-  }
-  throw new Error(`Cannot find Codex App launcher. ${launchErrors.join(" ")}`.trim());
-}
-
 async function restartCodexApp() {
-  const launcher = await windowsCodex.discover();
-  await windowsCodex.stop();
-  await windowsCodex.launch(launcher);
+  const launcher = await desktopCodex.discover();
+  await desktopCodex.stop({ launcher });
+  await desktopCodex.launch(launcher);
   return { ok: true, identityVerified: false };
 }
 
@@ -3933,7 +3886,7 @@ function createWindow() {
     icon: appIconPath(),
     backgroundColor: "#f5f6f8",
     titleBarStyle: "hidden",
-    titleBarOverlay: { color: "#f5f5f7", symbolColor: "#6e6e73", height: 38 },
+    ...(isWindows ? {titleBarOverlay: { color: "#f5f5f7", symbolColor: "#6e6e73", height: 38 }} : {trafficLightPosition: {x: 16, y: 14}}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -4622,7 +4575,9 @@ if (hasSingleInstanceLock) {
     if (isWindows) {
       app.setAppUserModelId(APP_ID);
     }
-    Menu.setApplicationMenu(null);
+    Menu.setApplicationMenu(isMac ? Menu.buildFromTemplate([
+      {role:'appMenu'}, {role:'editMenu'}, {role:'windowMenu'},
+    ]) : null);
     await ensureStoreDirs();
     await recoverStoreIfNeeded();
     const settings = await syncLaunchAtLoginFromSettings();

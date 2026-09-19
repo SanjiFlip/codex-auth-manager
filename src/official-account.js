@@ -1,8 +1,7 @@
-const {spawn,execFile}=require('node:child_process');
-const {promisify}=require('node:util');
+const {spawn}=require('node:child_process');
+const {stopChild}=require('./child-process-cleanup');
 const {createInterface}=require('node:readline');
 const {resolveCli}=require('./official-login');
-const execute=promisify(execFile);
 
 function normalizeOfficialAccount(accountResult, limitsResult, checkedAt=new Date().toISOString()) {
   if(accountResult?.account?.type!=='chatgpt')throw new Error('官方服务未识别到 ChatGPT 登录。');
@@ -57,7 +56,7 @@ async function queryOfficialAccount(home,{resolve=resolveCli,spawnProcess=spawn}
     ]);
   }finally{
     clearTimeout(timer);lines.close();
-    if(child.pid&&!closed)await execute('taskkill.exe',['/PID',String(child.pid),'/T','/F'],{windowsHide:true,timeout:10000}).catch(()=>{});
+    if(child.pid&&!closed)await stopChild(child);
     let closeTimer;
     await Promise.race([childClosed,new Promise(resolve=>{closeTimer=setTimeout(resolve,3000)})]);
     clearTimeout(closeTimer);

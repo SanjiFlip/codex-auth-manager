@@ -12,16 +12,26 @@ test('npm wrapper resolves directly to its native executable without a shell or 
   const platform=path.join(pkg,'node_modules','@openai','codex-win32-x64');
   await file(path.join(platform,'package.json'),'{"name":"@openai/codex-win32-x64"}');
   const exe=path.join(platform,'vendor','x86_64-pc-windows-msvc','bin','codex.exe');await file(exe);
-  assert.deepEqual(await resolveCli({env:{Path:root},arch:'x64'}),{command:await fs.realpath(exe),args:[]});
+  assert.deepEqual(await resolveCli({platform:'win32',env:{Path:root},arch:'x64'}),{command:await fs.realpath(exe),args:[]});
 });
 test('direct executable and bundled vendor layout work from paths containing spaces',async t=>{
   const root=await fixture(t),direct=path.join(root,'native folder','codex.exe');await file(direct);
-  assert.deepEqual(await resolveCli({env:{PATH:path.dirname(direct)}}),{command:direct,args:[]});
+  assert.deepEqual(await resolveCli({platform:'win32',env:{PATH:path.dirname(direct)}}),{command:direct,args:[]});
   const npm=path.join(root,'npm folder');await file(path.join(npm,'codex.ps1'));
   const exe=path.join(npm,'node_modules','@openai','codex','vendor','aarch64-pc-windows-msvc','bin','codex.exe');await file(exe);
-  assert.deepEqual(await resolveCli({env:{Path:npm},arch:'arm64'}),{command:await fs.realpath(exe),args:[]});
+  assert.deepEqual(await resolveCli({platform:'win32',env:{Path:npm},arch:'arm64'}),{command:await fs.realpath(exe),args:[]});
 });
 test('missing native package fails instead of falling back to a window-opening shim',async t=>{
   const root=await fixture(t);await file(path.join(root,'codex.cmd'));await file(path.join(root,'node_modules','@openai','codex','bin','codex.js'));
-  await assert.rejects(resolveCli({env:{Path:root},arch:'x64'}),/原生|native/i);
+  await assert.rejects(resolveCli({platform:'win32',env:{Path:root},arch:'x64'}),/原生|native/i);
+});
+
+test('macOS resolves native CLI and npm wrapper without requiring GUI Node PATH',async t=>{
+ const root=await fixture(t);const native=path.join(root,'direct','codex');await file(native,'native fixture');
+ assert.deepEqual(await resolveCli({platform:'darwin',env:{PATH:path.dirname(native)},home:root}),{command:await fs.realpath(native),args:[]});
+ for(const arch of ['arm64','x64']){
+  const pkg=path.join(root,arch),bin=path.join(pkg,'bin');await file(path.join(bin,'codex'),'#!/usr/bin/env node');
+  const exe=path.join(pkg,'vendor',arch==='arm64'?'aarch64-apple-darwin':'x86_64-apple-darwin','codex','codex');await file(exe);
+  assert.deepEqual(await resolveCli({platform:'darwin',arch,env:{PATH:bin},home:root}),{command:exe,args:[]});
+ }
 });

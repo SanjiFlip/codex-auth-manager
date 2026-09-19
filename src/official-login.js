@@ -1,37 +1,48 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { spawn, execFile } = require('node:child_process');
-const { promisify } = require('node:util');
+const { spawn } = require('node:child_process');
+const {stopChild}=require('./child-process-cleanup');
 const { createInterface } = require('node:readline');
-const execute = promisify(execFile);
 
 const {createRequire}=require('node:module');
 async function isFile(file){try{return (await fs.stat(file)).isFile()}catch{return false}}
-async function nativeFromPackage(root,arch){
-  const target=arch==='arm64'?'aarch64-pc-windows-msvc':arch==='x64'?'x86_64-pc-windows-msvc':null;
+async function nativeFromPackage(root,arch,platform){
+  const cpu=arch==='arm64'?'aarch64':arch==='x64'?'x86_64':null;
+  const target=cpu?cpu+(platform==='darwin'?'-apple-darwin':'-pc-windows-msvc'):null;
   if(!target)throw new Error('不支持当前 Codex CLI 架构。');
   const roots=[];
   try{
     const requirePackage=createRequire(path.join(root,'package.json'));
-    roots.push(path.join(path.dirname(requirePackage.resolve('@openai/codex-win32-'+arch+'/package.json')),'vendor'));
+    roots.push(path.join(path.dirname(requirePackage.resolve('@openai/codex-'+platform+'-'+arch+'/package.json')),'vendor'));
   }catch{}
   roots.push(path.join(root,'vendor'));
   for(const vendor of roots)for(const folder of ['bin','codex']){
-    const executable=path.join(vendor,target,folder,'codex.exe');
+    const executable=path.join(vendor,target,folder,platform==='darwin'?'codex':'codex.exe');
     if(await isFile(executable))return {command:executable,args:[]};
   }
   throw new Error('未找到 Codex 原生程序，请重新安装完整的 Codex CLI 后重试。');
 }
-async function resolveCli({env=process.env,arch=process.arch}={}) {
+async function resolveCli({env=process.env,arch=process.arch,platform=process.platform,home=require('node:os').homedir()}={}) {
   const value=Object.entries(env).find(([key])=>key.toLowerCase()==='path')?.[1]||'';
-  for(const raw of value.split(path.delimiter)){
+  const directories=value.split(path.delimiter);
+  if(platform==='darwin')directories.push('/opt/homebrew/bin','/usr/local/bin',path.join(home,'.local','bin'));
+  for(const raw of directories){
     const directory=raw.trim().replace(/^"|"$/g,'');if(!directory||!path.isAbsolute(directory))continue;
+    if(platform==='darwin'){
+      const binary=path.join(directory,'codex');
+      if(!await isFile(binary))continue;
+      const resolved=await fs.realpath(binary);
+      const handle=await fs.open(resolved,'r');const magic=Buffer.alloc(2);
+      try{await handle.read(magic,0,2,0)}finally{await handle.close()}
+      if(magic.toString()==='#!')return nativeFromPackage(path.dirname(path.dirname(resolved)),arch,platform);
+      return {command:resolved,args:[]};
+    }
     const executable=path.join(directory,'codex.exe');
     if(await isFile(executable))return {command:executable,args:[]};
     for(const extension of ['cmd','ps1','bat']){
       if(!await isFile(path.join(directory,'codex.'+extension)))continue;
       const root=path.join(directory,'node_modules','@openai','codex');
-      return nativeFromPackage(await fs.realpath(root).catch(()=>root),arch);
+      return nativeFromPackage(await fs.realpath(root).catch(()=>root),arch,platform);
     }
   }
   throw new Error('未找到 Codex 原生 CLI，请安装后重新打开管理工具。');
@@ -63,7 +74,7 @@ function createLogin({ root, save, report = () => {}, resolve = resolveCli, spaw
         await openBrowser(session.url);
         if(active===session&&!session.cancelled&&session.phase==='waiting')publish({...waiting(session),browserError:null});
       }catch{
-        const message='无法打开默认浏览器。请检查 Windows 默认浏览器设置，再点击“重新打开浏览器”。';
+        const message='无法打开默认浏览器。请检查 系统默认浏览器设置，再点击“重新打开浏览器”。';
         if(active===session&&!session.cancelled&&session.phase==='waiting')publish({...waiting(session),browserError:message});
         throw new Error(message);
       }
@@ -147,7 +158,7 @@ function createLogin({ root, save, report = () => {}, resolve = resolveCli, spaw
     session.cancelled = true;
     if (session.child?.pid) {
       if (stopProcess) await stopProcess(session.child);
-      else await execute('taskkill.exe', ['/PID', String(session.child.pid), '/T', '/F'], { windowsHide: true, timeout: 10000 }).catch(() => {});
+      else await stopChild(session.child);
     }
     await session.done;
     return publicState;

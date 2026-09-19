@@ -121,3 +121,11 @@
 - 31 项单元测试、完整合成账号切换回归通过；修正回归脚本在悬浮窗首次加载尚未结束时过早操作的竞争条件。
 - `scripts/window-lifecycle-smoke.js --packaged` 对 app.asar 内实际主进程代码执行同一原生窗口 close/恢复/退出检查并通过；49 个打包源码文件与源文件一致。
 - CDP 中调用 renderer 的 window.close 后求值出现超时，因此窗口行为改由原生 BrowserWindow.close 验证，避免把调试协议超时当作按钮行为结果。
+
+## 0.4.0 macOS 适配（2026-09-19）
+
+- 增加 macOS 原生应用发现、按 bundle 路径匹配进程、NSRunningApplication 正常退出、确认退出后写入凭据、open 重启以及显式强制退出。
+- macOS CLI 解析不执行 npm JS 包装器；官方登录取消和额度子进程清理不再调用 Windows taskkill。
+- 平台相关文案、系统菜单、标题栏和凭据保护标识适配；Windows 原有退出和 DPAPI 分支保留。
+- Windows 本地 38 项测试通过，1 项 macOS 原生夹具按平台跳过。macOS CI 启用 arm64 / x64 测试和 DMG / ZIP 构建；原生测试使用临时合成 .app，不操作真实 Codex 或用户凭据。
+- 尚未完成真实 Mac 用户登录与在线身份核对；安装包未做 Developer ID 签名 / 公证。

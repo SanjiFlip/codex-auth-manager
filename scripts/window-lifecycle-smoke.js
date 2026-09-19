@@ -10,6 +10,7 @@ const timer=setInterval(async()=>{
  const win=BrowserWindow.getAllWindows().find(w=>!w.isDestroyed()&&w.webContents.getURL().includes('manager.html'));
  if(!win||win.webContents.isLoading())return;clearInterval(timer);
  try{
+  if(process.platform==='darwin'){const {safeStorage}=require('electron');assert.equal(safeStorage.isEncryptionAvailable(),true);assert.equal(safeStorage.decryptString(safeStorage.encryptString('synthetic-window-check')),'synthetic-window-check');}
   let unexpectedQuit=false;
   const guard=event=>{unexpectedQuit=true;event.preventDefault()};
   app.on('before-quit',guard);

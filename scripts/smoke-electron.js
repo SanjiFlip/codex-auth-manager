@@ -14,7 +14,7 @@ const jwt=value=>'eyJhbGciOiJub25lIn0.'+Buffer.from(JSON.stringify(value)).toStr
 const auth=JSON.stringify({auth_mode:'chatgpt',tokens:{access_token:jwt({sub:'smoke-user',exp:2000000000,'https://api.openai.com/auth':{chatgpt_account_id:'smoke-workspace',chatgpt_plan_type:'plus'}}),id_token:jwt({sub:'smoke-user',email:'smoke@example.invalid'}),refresh_token:'SYNTHETIC-NOT-A-REAL-CREDENTIAL'},last_refresh:new Date().toISOString()});
 fs.writeFileSync(path.join(codex,'auth.json'),auth);
 // OS adapter is replaced only in this harness. No real Codex process is touched.
-const lifecycle=require('../src/windows-codex');
+const lifecycle=require(process.platform==='darwin'?'../src/mac-codex':'../src/windows-codex');
 const lifecycleCalls=[];
 let failLaunch=false, trayResident=false;
 const forceOptions=[];
@@ -57,7 +57,7 @@ const timer=setInterval(async()=>{
     assert.equal(fs.readFileSync(path.join(codex,'auth.json'),'utf8'),auth);
     assert.equal(forceOptions.at(-1),false,'Malformed force flag must not bypass confirmation');
     await win.webContents.executeJavaScript(`act('switch-confirm',${JSON.stringify(secondId)})`);
-    assert.equal(await win.webContents.executeJavaScript(`document.querySelector('#modal').open && document.querySelector('#modal').textContent.includes('托盘')`),true);
+    assert.equal(await win.webContents.executeJavaScript(`document.querySelector('#modal').open && document.querySelector('#modal').textContent.includes('后台')`),true);
     const beforeCancel=lifecycleCalls.length;
     await win.webContents.executeJavaScript(`act('switch-force-prompt',${JSON.stringify(secondId)});act('close')`);
     assert.equal(lifecycleCalls.length,beforeCancel,'Cancel must not end processes');

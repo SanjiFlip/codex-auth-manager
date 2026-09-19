@@ -1,4 +1,5 @@
-const {test}=require('node:test'),assert=require('node:assert/strict');
+const {test:nodeTest}=require('node:test'),assert=require('node:assert/strict');
+const test=(name,fn)=>nodeTest(name,{skip:process.platform!=='win32'},fn);
 function createWindowsCodex({execute}){
  const childProcess=require('node:child_process'),original=childProcess.execFile;
  const file=require.resolve('../src/windows-codex');delete require.cache[file];

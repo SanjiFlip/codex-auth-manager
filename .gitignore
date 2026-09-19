@@ -40,3 +40,7 @@ settings.json
 coverage/
 .DS_Store
 Thumbs.db
+
+*.keychain
+*.dmg
+*.app/

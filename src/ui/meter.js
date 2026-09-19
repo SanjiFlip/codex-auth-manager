@@ -30,6 +30,7 @@ function renderOptions(){
 }
 function openMenu(direction=0){if(busy||!state.accounts.length)return;renderOptions();$('#account-menu').hidden=false;$('#account-trigger').setAttribute('aria-expanded','true');const options=[...$('#account-options').children];const selected=options.findIndex(el=>el.dataset.id===selectedId);options[direction<0?options.length-1:Math.max(0,selected)]?.focus()}
 function render(){
+  if(state.platform==='darwin'){$('#exit-title').textContent='Codex 仍在后台运行';$('#exit-help').textContent='请在 Codex / ChatGPT 应用菜单中选择退出（⌘Q）。凭据尚未改写。';$('#retry-exit').textContent='已退出应用，重试';}
   const account=currentAccount(),q=account?.quotaSnapshot,showSession=window.showFiveHour(account?.planType,state.settings);
   const primary=showSession?q?.session:q?.weekly,p=stats.remaining(primary),w=stats.remaining(q?.weekly);
   document.body.classList.toggle('week-only',!showSession);$('#weekly-section').hidden=!showSession;
