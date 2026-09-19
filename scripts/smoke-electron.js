@@ -72,6 +72,7 @@ const timer=setInterval(async()=>{
     if(trayMeter.webContents.isLoading())await new Promise(r=>trayMeter.webContents.once('did-finish-load',r));
     trayResident=true;
     await trayMeter.webContents.executeJavaScript(`(async()=>{
+      while(loading)await new Promise(r=>setTimeout(r,50));
       await load();selectedId=${JSON.stringify(result.id)};render();
       document.querySelector('#switch-btn').click();document.querySelector('#confirm-switch').click();
       const end=Date.now()+5000;while(!document.querySelector('#exit-blocked').open&&Date.now()<end)await new Promise(r=>setTimeout(r,50));

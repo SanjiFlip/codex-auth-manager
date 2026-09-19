@@ -3948,8 +3948,7 @@ function createWindow() {
   mainWindow.on("close", (event) => {
     if (isQuitting) return;
     event.preventDefault();
-    if (widgetWindow && !widgetWindow.isDestroyed() && widgetWindow.isVisible()) mainWindow.hide();
-    else app.quit();
+    mainWindow.hide();
   });
   mainWindow.loadFile(path.join(__dirname, "ui", "manager.html"));
   return mainWindow;
