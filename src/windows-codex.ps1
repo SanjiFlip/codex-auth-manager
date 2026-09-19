@@ -1,4 +1,4 @@
-param([ValidateSet('discover','stop','launch')] [string]$Mode)
+param([ValidateSet('discover','stop','force-stop','launch')] [string]$Mode)
 $ErrorActionPreference = 'Stop'
 $package = Get-AppxPackage -Name 'OpenAI.Codex' -ErrorAction SilentlyContinue | Sort-Object Version -Descending | Select-Object -First 1
 $installRoot = if ($package -and $package.InstallLocation) { [IO.Path]::GetFullPath($package.InstallLocation).TrimEnd('\') } else { $null }
@@ -22,14 +22,21 @@ if ($Mode -eq 'discover') {
   @{ appId = $appId; executable = $executable } | ConvertTo-Json -Compress
   exit 0
 }
-if ($Mode -eq 'stop') {
+if ($Mode -in @('stop','force-stop')) {
   $targets = @(Get-Targets)
   foreach ($target in $targets) {
-    if ($target.MainWindowHandle -ne 0) { [void]$target.CloseMainWindow() }
+    if ($Mode -eq 'force-stop') {
+      # Explicitly confirmed only; targets are restricted to the Codex installation.
+      try { $target.Kill() } catch { if (-not $target.HasExited) { throw } }
+    } elseif ($target.MainWindowHandle -ne 0) { [void]$target.CloseMainWindow() }
   }
   $deadline = [DateTime]::UtcNow.AddSeconds(15)
   while (@(Get-Targets).Count -gt 0 -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 200 }
-  if (@(Get-Targets).Count -gt 0) { throw 'Codex is still running. Save your work and fully quit Codex, then try again.' }
+  $remaining = @(Get-Targets)
+  if ($remaining.Count -gt 0) {
+    @{ status = 'still-running'; count = $remaining.Count } | ConvertTo-Json -Compress
+    exit 2
+  }
   exit 0
 }
 $launcher = $env:CAM_LAUNCH_INFO | ConvertFrom-Json

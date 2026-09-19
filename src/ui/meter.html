@@ -12,6 +12,7 @@
 <button id="switch-btn" class="switch-button" disabled>正在使用此账号</button></section>
 <footer><span class="freshness"><i></i><span id="freshness">本地快照 · 待更新</span></span><button id="open-main">主界面 ↗</button></footer>
 </div></main>
-<dialog id="switch-confirm" aria-labelledby="confirm-title"><h2 id="confirm-title">切换账号</h2><p id="confirm-name"></p><p>将关闭并重启 Codex，请先保存当前任务。</p><div class="dialog-actions"><button id="cancel-switch">取消</button><button id="confirm-switch" class="primary">确认切换</button></div></dialog>
+<dialog id="switch-confirm" aria-labelledby="confirm-title"><h2 id="confirm-title">切换账号</h2><p id="confirm-name"></p><p id="confirm-warning">将关闭并重启 Codex，请先保存当前任务。</p><div class="dialog-actions"><button id="cancel-switch">取消</button><button id="confirm-switch" class="primary">确认切换</button></div></dialog>
+<dialog id="exit-blocked" aria-labelledby="exit-title"><h2 id="exit-title">Codex 仍在托盘运行</h2><p>请右键右下角 Codex 托盘图标，选择退出。凭据尚未改写。</p><div class="dialog-actions exit-actions"><button id="retry-exit" class="primary">已从托盘退出，重试</button><button id="force-exit">结束后台并切换…</button><button id="cancel-exit">取消</button></div></dialog>
 <div id="message" role="status" aria-live="polite" hidden></div>
 <script src="plans.js"></script><script src="statistics.js"></script><script src="meter.js"></script></body></html>

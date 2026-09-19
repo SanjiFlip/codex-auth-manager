@@ -74,15 +74,30 @@ $('#refresh-btn').onclick=async()=>{
     notify(failed?'部分更新失败：'+failed.reason.message:demo?'演示模式不查询真实账号':'已更新');
   }catch(e){notify('本地更新失败：'+e.message)}finally{finishBusy()}
 };
-$('#switch-btn').onclick=()=>{const target=state.accounts.find(a=>a.id===selectedId);if(busy||!target||target.isActive)return;closeMenu();pendingTargetId=target.id;$('#confirm-name').textContent='切换到「'+target.displayName+'」';$('#switch-confirm').showModal();$('#cancel-switch').focus()};
-$('#cancel-switch').onclick=()=>{$('#switch-confirm').close();pendingTargetId=null;$('#switch-btn').focus()};
-$('#switch-confirm').addEventListener('cancel',()=>{pendingTargetId=null});
-$('#confirm-switch').onclick=async()=>{
-  if(busy||!pendingTargetId)return;const id=pendingTargetId;pendingTargetId=null;$('#switch-confirm').close();
+let pendingForce=false;
+function confirmSwitch(id,force=false){
+  pendingTargetId=id;pendingForce=force;
+  const target=state.accounts.find(a=>a.id===id);if(!target)return;
+  $('#confirm-name').textContent='切换到「'+target.displayName+'」';
+  $('#confirm-warning').textContent=force?'将强制结束 Codex 及后台任务，未保存的内容可能丢失。请先保存工作。':'将关闭并重启 Codex，请先保存当前任务。';
+  $('#confirm-switch').textContent=force?'确认结束并切换':'确认切换';
+  $('#switch-confirm').showModal();$('#cancel-switch').focus();
+}
+$('#switch-btn').onclick=()=>{const target=state.accounts.find(a=>a.id===selectedId);if(busy||!target||target.isActive)return;closeMenu();confirmSwitch(target.id)};
+$('#cancel-switch').onclick=()=>{$('#switch-confirm').close();pendingTargetId=null;pendingForce=false;$('#switch-btn').focus()};
+$('#switch-confirm').addEventListener('cancel',()=>{pendingTargetId=null;pendingForce=false});
+$('#cancel-exit').onclick=()=>{$('#exit-blocked').close();pendingTargetId=null};
+$('#exit-blocked').addEventListener('cancel',()=>{pendingTargetId=null});
+$('#force-exit').onclick=()=>{const id=pendingTargetId;$('#exit-blocked').close();if(id)confirmSwitch(id,true)};
+$('#retry-exit').onclick=()=>{const id=pendingTargetId;$('#exit-blocked').close();if(id)performSwitch(id,false)};
+async function performSwitch(id,forceClose){
+  pendingTargetId=null;pendingForce=false;
   const target=state.accounts.find(a=>a.id===id);if(!target||target.isActive){notify('账号状态已变化，请重新选择');return}
-  setBusy(true);
-  try{if(demo){for(const a of state.accounts)a.isActive=a.id===id;notify('演示切换完成，未操作真实 Codex')}else{state=await api.switchAccount(id,{restartCodex:true});notify('Codex 已重启，请核对身份')}selectedId=state.accounts.find(a=>a.isActive)?.id||id;render()}catch(e){notify(e.message)}finally{finishBusy()}
-};
+  if(busy)return;setBusy(true);
+  try{if(demo){for(const a of state.accounts)a.isActive=a.id===id;notify('演示切换完成，未操作真实 Codex')}else{state=await api.switchAccount(id,{restartCodex:true,forceClose});notify('Codex 已重启，请核对身份')}selectedId=state.accounts.find(a=>a.isActive)?.id||id;render()}
+  catch(e){if(e.message?.includes('CODEX_STILL_RUNNING')){pendingTargetId=id;$('#exit-blocked').showModal();$('#cancel-exit').focus()}else notify(e.message)}finally{finishBusy()}
+}
+$('#confirm-switch').onclick=()=>{if(busy||!pendingTargetId)return;const id=pendingTargetId,force=pendingForce;$('#switch-confirm').close();performSwitch(id,force)};
 document.body.classList.toggle('dark',localStorage.getItem('meter-dark')==='1');
 if(demo)window.addEventListener('storage',()=>load());
 function refreshLive(){

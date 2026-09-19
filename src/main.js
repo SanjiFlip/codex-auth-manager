@@ -1568,7 +1568,7 @@ async function switchAccount(accountId, options = {}) {
   return runAccountOperation(() => switchAccountLocked(accountId, options));
 }
 
-async function switchAccountLocked(accountId) {
+async function switchAccountLocked(accountId, options = {}) {
   if (officialLogin.busy()) throw new Error('请先完成或取消账号添加。');
   switchInProgress = true;
   localDataCache.invalidate();
@@ -1583,7 +1583,7 @@ async function switchAccountLocked(accountId) {
         if (identityKey(auth.identity) !== identityKey(account.identity)) throw new Error('目标账号与凭据不一致，请重新添加。');
         return { launcher: await windowsCodex.discover() };
       },
-      stop: () => windowsCodex.stop(),
+      stop: () => windowsCodex.stop({ force: options?.forceClose === true }),
       capture: async () => {
         let raw = null;
         try { raw = await fs.readFile(authPath(), 'utf8'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
