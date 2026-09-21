@@ -100,6 +100,22 @@ const {displaySnapshot}=require('./quota/display-snapshot');
 const {selectWindow}=require('./quota/select-window');
 const {createOfficialRefresh}=require('./official-refresh');
 const officialRefresh=createOfficialRefresh({refresh:refreshOfficialAccountLocked});
+const {createKnowledgeStore,markdown:knowledgeMarkdown}=require('./knowledge/store');
+const {createSessionLibrary}=require('./knowledge/sessions');
+const {executeDistillation}=require('./knowledge/cli');
+const {createWorkbench}=require('./knowledge/workbench');
+const knowledgeStore=createKnowledgeStore({root:path.join(storeRoot(),'knowledge'),
+  encrypt:text=>{if(!safeStorage.isEncryptionAvailable())throw Error('系统加密服务不可用。');return safeStorage.encryptString(text).toString('base64')},
+  decrypt:text=>safeStorage.decryptString(Buffer.from(text,'base64'))});
+const sessionLibrary=createSessionLibrary(codexDir());
+const workbench=createWorkbench({library:sessionLibrary,store:knowledgeStore,
+  execute:options=>executeDistillation({...options,home:codexDir()}),
+  withAccount:task=>runAccountOperation(async()=>{
+    if(officialLogin.busy())throw Error('请先完成或取消账号添加。');
+    if(await credentialMode()!=='file')throw Error('请先在应用设置中启用文件凭据管理并登录。');
+    await readCurrentAuth();
+    return task();
+  }),report:status=>broadcastStateChanged({scope:'knowledge',...status})});
 let statisticsInFlight=null;
 
 const { runSwitch } = require('./switch-lifecycle');
@@ -1568,6 +1584,7 @@ async function startSessionsPolling() {
 }
 
 async function switchAccount(accountId, options = {}) {
+  if(workbench.busy())throw Error('蒸馏正在使用当前账号，请完成或取消后再切换。');
   return runAccountOperation(() => switchAccountLocked(accountId, options));
 }
 
@@ -4476,6 +4493,25 @@ function handleWidgetPointerLeave() {
 }
 
 function registerIpc() {
+  const knowledgeHandle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
+    if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('不允许从此窗口访问知识库。');
+    return handler(...args);
+  });
+  knowledgeHandle('knowledge:list',()=>knowledgeStore.list());
+  knowledgeHandle('knowledge:save',input=>knowledgeStore.save(input));
+  knowledgeHandle('knowledge:remove',(id,revision)=>knowledgeStore.remove(id,revision));
+  knowledgeHandle('knowledge:sessions',()=>sessionLibrary.list());
+  knowledgeHandle('knowledge:transcript',id=>sessionLibrary.transcript(id));
+  knowledgeHandle('knowledge:start',request=>workbench.start(request));
+  knowledgeHandle('knowledge:state',()=>workbench.state());
+  knowledgeHandle('knowledge:cancel',()=>workbench.cancel());
+  knowledgeHandle('knowledge:export',async id=>{
+    const items=await knowledgeStore.list();const item=items.find(x=>x.id===id);
+    if(!item)throw Error('条目不存在，请刷新。');
+    const result=await dialog.showSaveDialog(mainWindow,{title:'导出 Markdown',defaultPath:item.kind==='skill'?'SKILL.md':'memory.md',filters:[{name:'Markdown',extensions:['md']}]});
+    if(result.canceled||!result.filePath)return false;
+    await fs.writeFile(result.filePath,knowledgeMarkdown(item),{encoding:'utf8',mode:0o600});return true;
+  });
   ipcMain.handle('window:set-theme', (event, dark) => {
     const win=BrowserWindow.fromWebContents(event.sender);
     if(isMac)nativeTheme.themeSource=dark===true?"dark":"light";
@@ -4630,6 +4666,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", (event) => {
+  if(workbench.busy()){event.preventDefault();workbench.cancel().finally(()=>app.quit());return;}
   if (officialLogin.busy()) { event.preventDefault(); officialLogin.cancel().finally(() => app.quit()); return; }
   isQuitting = true;
   if (widgetBoundsSaveTimer) {

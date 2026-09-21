@@ -1,6 +1,15 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("codexAuth", {
+  knowledgeList:()=>ipcRenderer.invoke('knowledge:list'),
+  knowledgeSave:input=>ipcRenderer.invoke('knowledge:save',input),
+  knowledgeRemove:(id,revision)=>ipcRenderer.invoke('knowledge:remove',id,revision),
+  knowledgeSessions:()=>ipcRenderer.invoke('knowledge:sessions'),
+  knowledgeTranscript:id=>ipcRenderer.invoke('knowledge:transcript',id),
+  knowledgeStart:request=>ipcRenderer.invoke('knowledge:start',request),
+  knowledgeState:()=>ipcRenderer.invoke('knowledge:state'),
+  knowledgeCancel:()=>ipcRenderer.invoke('knowledge:cancel'),
+  knowledgeExport:id=>ipcRenderer.invoke('knowledge:export',id),
   startLogin: name => ipcRenderer.invoke('login:start', name),
   cancelLogin: () => ipcRenderer.invoke('login:cancel'),
   getLoginState: () => ipcRenderer.invoke('login:state'),

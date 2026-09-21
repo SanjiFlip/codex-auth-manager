@@ -41,6 +41,7 @@ jobs:
       - run: npm test
       - run: npx electron scripts/window-lifecycle-smoke.js
       - run: npx electron scripts/smoke-electron.js
+      - run: npx electron scripts/knowledge-smoke.js
       - run: npx electron-builder --mac dmg zip --${{ matrix.arch }} --publish never
       - run: npx electron scripts/window-lifecycle-smoke.js --packaged
       - run: node scripts/mac-packaged-smoke.js

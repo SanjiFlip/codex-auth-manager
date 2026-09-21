@@ -8,6 +8,21 @@ Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/
 
 > 非 OpenAI 官方产品。当前 v0.4.1 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
+## 开发中的 v0.5.0 · 蒸馏工作台与记忆库
+
+源码已加入独立实现的蒸馏与记忆功能，公开下载仍为下方 v0.4.1，尚不包含这些新功能。
+
+- 选择本机 Codex 会话中的具体消息，通过本机当前登录的 Codex CLI 生成 Skill、工作流、提示词、个人偏好或任务记忆草稿。
+- 支持模型名称与补充要求、取消任务、草稿编辑、项目分类、搜索筛选、来源追溯及 Markdown 导出。
+- 草稿和记忆通过系统加密保存在独立知识库，跨账号共用；不会自动安装 Skill，也不会改写 Codex 原生记忆目录。
+- 蒸馏需要联网并消耗当前账号额度；会先确认所选素材，不自动批量处理会话。
+
+操作方式、CLI 要求和数据边界见 [蒸馏与记忆使用说明](docs/KNOWLEDGE.md)。以下为 v0.5.0 Windows 隔离测试界面，全部内容为合成示例。
+
+| 蒸馏工作台 | 记忆库 |
+| --- | --- |
+| ![蒸馏工作台：选取会话消息并配置产物](docs/images/distillation.png) | ![记忆库：分类检索、编辑与导出](docs/images/memory.png) |
+
 ## 下载安装包
 
 当前版本：**v0.4.1 预览版**。请按操作系统和处理器选择安装包。
@@ -85,7 +100,7 @@ npm start
 - 演示：`npm run demo`，使用独立演示数据，没有真实账号 IPC。
 - Windows 构建：`npm run dist`，输出到 `release/`。
 - macOS 构建：在 Mac 上运行 `npm run dist:mac`，生成 arm64 / x64 的 DMG 与 ZIP。
-- 安装：构建后运行 `release/Codex Auth Manager Setup 0.4.1.exe`；更新时先退出旧版管理工具，再选择原安装目录。
+- 安装：构建后运行 `release/Codex Auth Manager Setup 0.5.0.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
