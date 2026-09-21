@@ -97,6 +97,7 @@ const ATOMIC_TEMP_MAX_AGE_MS = 60 * 60 * 1000;
 const AUTH_BACKUP_RETENTION_COUNT = 60;
 const localDataCache = createLocalDataCache();
 const {displaySnapshot}=require('./quota/display-snapshot');
+const {selectWindow}=require('./quota/select-window');
 const {createOfficialRefresh}=require('./official-refresh');
 const officialRefresh=createOfficialRefresh({refresh:refreshOfficialAccountLocked});
 let statisticsInFlight=null;
@@ -3630,6 +3631,11 @@ async function saveAccountResetCredits(accountId, reset) {
 
 function buildAccountQuotaSnapshot(quota, previous) {
   const {calibration, ...snapshot} = quota;
+  if (previous?.schemaVersion === 2) {
+    for (const key of ['session', 'weekly']) {
+      snapshot[key] = selectWindow(previous[key], snapshot[key], previous.checkedAt, snapshot.checkedAt);
+    }
+  }
   return {...snapshot, resetCredits: newestResetCredits(snapshot.resetCredits, previous?.schemaVersion === 2 ? previous.resetCredits : null), schemaVersion:2};
 }
 
@@ -3738,10 +3744,16 @@ function resolveQuota(scope, latestQuota) {
       error: "未检测到当前登录账号，暂不显示本机历史额度。",
     };
   }
-  const compatibleLatest =
+  let compatibleLatest =
     latestQuota && scope.accountPlanType && latestQuota.planType && !planTypesMatch(latestQuota.planType, scope.accountPlanType)
       ? null
       : latestQuota;
+  if (compatibleLatest && scope.accountQuotaSnapshot) {
+    compatibleLatest = {...compatibleLatest};
+    for (const key of ['session', 'weekly']) {
+      compatibleLatest[key] = selectWindow(scope.accountQuotaSnapshot[key], compatibleLatest[key], scope.accountQuotaSnapshot.checkedAt, compatibleLatest.checkedAt);
+    }
+  }
   const cachedQuota =
     !compatibleLatest && scope.accountQuotaSnapshot
       ? {

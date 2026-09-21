@@ -9,6 +9,7 @@ const jwt=v=>'eyJhbGciOiJub25lIn0.'+Buffer.from(JSON.stringify(v)).toString('bas
 const auth=JSON.stringify({auth_mode:"chatgpt",tokens:{access_token:jwt({sub:'realtime','https://api.openai.com/auth':{chatgpt_account_id:'realtime',chatgpt_plan_type:'pro'}}),id_token:jwt({sub:'realtime',email:'realtime@example.invalid'}),refresh_token:'SYNTHETIC-REALTIME-TEST'}});
 fs.writeFileSync(path.join(home,'auth.json'),auth);fs.writeFileSync(path.join(home,'config.toml'),'cli_auth_credentials_store = "file"\n');
 let percent=12,calls=0;
+const resetAt=Math.floor(Date.now()/1000)+86400;
 require('../src/official-account').queryOfficialAccount=async()=>{calls++;await new Promise(r=>setTimeout(r,100));return {planType:'pro',email:'realtime@example.invalid',quota:{source:'official-app-server',checkedAt:new Date().toISOString(),session:null,weekly:{usedPercent:percent,resetsAt:new Date(Date.now()+86400000).toISOString()},resetCredits:1}}};
 require('../src/main');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -34,14 +35,25 @@ setTimeout(()=>{console.error('REALTIME FAIL: timeout');app.exit(1)},50000);
   await until(()=>evaluate(meter,'document.querySelector("#session").textContent === "63%"'),'official refresh must reach meter');
   console.log('PASS: manual official refresh broadcasts to meter');
   const later=new Date().toISOString();
-  fs.appendFileSync(file,JSON.stringify({type:'event_msg',timestamp:later,payload:{type:'token_count',rate_limits:{plan_type:'pro',primary:{used_percent:49,window_minutes:10080,resets_at:Math.floor(Date.now()/1000)+86400}}}})+'\n');
+  fs.appendFileSync(file,JSON.stringify({type:'event_msg',timestamp:later,payload:{type:'token_count',rate_limits:{plan_type:'pro',primary:{used_percent:49,window_minutes:10080,resets_at:resetAt}}}})+'\n');
   await until(()=>evaluate(meter,'document.querySelector("#session").textContent === "51%"'),'newer local quota must replace old official snapshot');
   assert.ok(await evaluate(meter,'!document.querySelector("#session-reset").textContent.includes("已到期")'),'local Unix reset timestamp displays correctly');
   console.log('PASS: newer local quota overrides old official cache');
 
+  fs.appendFileSync(file,JSON.stringify({type:'event_msg',timestamp:new Date().toISOString(),payload:{type:'token_count',rate_limits:{plan_type:'pro',primary:{used_percent:0,window_minutes:10080,resets_at:resetAt}}}})+'\n');
+
   const before=calls;
   await Promise.all([evaluate(main,'window.codexAuth.refreshLocalData()'),evaluate(meter,'window.codexAuth.refreshLocalData()')]);
   await sleep(11000);
+  assert.equal(await evaluate(meter,'document.querySelector("#session").textContent'),'51%','same-period local zero must not rebound to 100% after background refresh');
+  assert.ok(await evaluate(main,'document.body.textContent.includes("51%")'),'main window retains the same measured quota');
+  console.log('PASS: zero snapshot cannot overwrite quota after watcher and periodic refresh');
+  // Log rotation removes the good event; the saved account snapshot must still protect it.
+  fs.writeFileSync(file,JSON.stringify({type:'event_msg',timestamp:new Date().toISOString(),payload:{type:'token_count',rate_limits:{plan_type:'pro',primary:{used_percent:0,window_minutes:10080,resets_at:resetAt}}}})+'\n');
+  await evaluate(main,'window.codexAuth.refreshLocalData()');
+  await sleep(1500);
+  assert.equal(await evaluate(meter,'document.querySelector("#session").textContent'),'51%','saved quota survives log rotation');
+  console.log('PASS: saved account quota survives zero-only rotated logs');
   assert.equal(calls,before,'Local refresh must not invoke remote query');
   assert.equal(fs.readFileSync(path.join(home,'auth.json'),'utf8'),auth);
   console.log('REALTIME PASS: log changes, cross-window quota, local-only refresh, current auth preserved');app.exit(0);

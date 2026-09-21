@@ -1,5 +1,6 @@
 // Compare event timestamps, not the time an old snapshot was read from disk.
 const time=value=>Number.isFinite(Date.parse(value))?Date.parse(value):0;
+const {selectWindow}=require('./select-window');
 function displaySnapshot(official,local){
   if(!official&&!local)return null;
   const result={...(official||local)};
@@ -7,7 +8,8 @@ function displaySnapshot(official,local){
   for(const key of ['session','weekly']){
     const a=official?.[key],b=local?.[key];
     const at=time(a?.checkedAt||official?.checkedAt),bt=time(b?.checkedAt||local?.checkedAt);
-    const fromLocal=!!b&&(!a||bt>at),window=fromLocal?b:a;
+    const window=bt>at||!a?selectWindow(a,b,official?.checkedAt,local?.checkedAt):a;
+    const fromLocal=!!b&&window===b;
     result[key]=window?{...window}:null;
     if(window){
       // Local logs use Unix seconds; official snapshots already use ISO dates.

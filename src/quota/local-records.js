@@ -3,6 +3,7 @@ const path = require("node:path");
 const readline = require("node:readline");
 const crypto = require("node:crypto");
 const zlib = require("node:zlib");
+const { selectWindow } = require('./select-window');
 const { normalizeTokenUsage, emptyTokenUsage, addTokenUsage, subtractTokenUsage, tokenUsageTotal } = require("./token-math");
 
 function numberOrNull(value) {
@@ -63,7 +64,12 @@ function combineBuckets(buckets) {
     for (const b of [bucket, ...(bucket.additional ?? [])]) {
       if (!b.limitId) continue;
       const prev = byId.get(b.limitId);
-      if (!prev || Date.parse(b.checkedAt) >= Date.parse(prev.checkedAt)) byId.set(b.limitId, b);
+      if (!prev) { byId.set(b.limitId, b); continue; }
+      const [older, newer] = Date.parse(b.checkedAt) >= Date.parse(prev.checkedAt) ? [prev,b] : [b,prev];
+      byId.set(b.limitId, { ...newer,
+        session: selectWindow(older.session,newer.session,older.checkedAt,newer.checkedAt),
+        weekly: selectWindow(older.weekly,newer.weekly,older.checkedAt,newer.checkedAt),
+      });
     }
   }
   const main = byId.get("codex") ?? [...byId.values()].sort((a,b) => Date.parse(b.checkedAt)-Date.parse(a.checkedAt))[0];
