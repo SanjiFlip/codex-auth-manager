@@ -20,13 +20,14 @@ test('session selection excludes tool/system text and duplicate event transcript
  const home=await temp(t);await fs.mkdir(path.join(home,'sessions'));
  const rows=[{type:'session_meta',payload:{id:'fixture',cwd:'/sample/project'}},{type:'response_item',payload:{type:'message',role:'system',content:[{type:'input_text',text:'SECRET-SYSTEM'}]}},{type:'response_item',payload:{type:'function_call_output',output:'SECRET-TOOL'}},{type:'response_item',payload:{type:'message',role:'user',content:[{type:'input_text',text:'Selected message'}]}},{type:'event_msg',payload:{type:'user_message',message:'Selected message'}}];
  await fs.writeFile(path.join(home,'sessions','fixture.jsonl'),rows.map(JSON.stringify).join('\n'));
- const lib=createSessionLibrary(home),list=await lib.list();assert.equal(list.items.length,1);const result=await lib.transcript(list.items[0].id);assert.equal(result.messages.length,1);assert.equal(result.messages[0].text,'Selected message');assert.equal(result.messages[0].fingerprint.length,64);await assert.rejects(lib.transcript('../auth.json'),/重新加载/);
+ require('../scripts/fixtures/knowledge-index').writeKnowledgeIndex(home,[{id:'fixture',file:path.join(home,'sessions','fixture.jsonl')}]);
+ const lib=createSessionLibrary(home),list=await lib.list();assert.equal(list.items.length,1);const result=await lib.transcript(list.items[0].id);assert.equal(result.messages.length,1);assert.equal(result.messages[0].text,'Selected message');assert.equal(result.messages[0].fingerprint.length,64);await assert.rejects(lib.transcript('../auth.json'),{code:'SESSION_UNAVAILABLE'});
 });
 test('workbench sends only selected messages, redacts secrets and persists a draft with provenance',async()=>{
  let prompt,entry;const message={index:3,role:'user',text:'Preference with sk-abcdefghijklmnopqrstuvw',fingerprint:'chosen'};
  const library={list:async()=>({items:[{id:'ref',title:'Project',sessionId:'session'}]}),transcript:async()=>({messages:[{index:0,text:'UNSELECTED'},message]})};
  const store={save:async x=>{entry=x;return {...x,id:'draft'}}};
- const wb=createWorkbench({library,store,withAccount:fn=>fn(),execute:async x=>{prompt=x.prompt;return '整理结果'}});
+ const wb=createWorkbench({library,store,resolveModel:async()=>({model:'test-model',reasoningEffort:'high'}),withAccount:fn=>fn(),execute:async x=>{prompt=x.prompt;assert.equal(x.model,'test-model');assert.equal(x.reasoningEffort,'high');return '整理结果'}});
  const request={...base,instructions:'',selection:[{id:'ref',messages:[3],fingerprints:{3:'chosen'}}]};
  wb.start(request);assert.throws(()=>wb.start(request),/正在运行/);while(wb.busy())await new Promise(r=>setTimeout(r,5));assert.equal(wb.state().phase,'completed');assert.ok(!prompt.includes('UNSELECTED'));assert.ok(!prompt.includes('sk-abcdefghijklmnopqrstuvw'));assert.equal(entry.status,'draft');assert.deepEqual(entry.sources[0].messages,[3]);
  entry=null;wb.start({...request,selection:[{id:'ref',messages:[3],fingerprints:{3:'changed'}}]});while(wb.busy())await new Promise(r=>setTimeout(r,5));assert.equal(wb.state().phase,'failed');assert.equal(entry,null);
@@ -34,8 +35,8 @@ test('workbench sends only selected messages, redacts secrets and persists a dra
 function fixture(onSpawn){return (command,args,options)=>{const c=new EventEmitter();c.stdin=new PassThrough();c.stdout=new PassThrough();c.stderr=new PassThrough();c.pid=123;c.exitCode=null;c.signalCode=null;queueMicrotask(()=>onSpawn(c,args,options));return c;};}
 test('CLI uses hidden native process, sends material over stdin and collects UTF-8 result',async()=>{
  let received='',cwd;
- const output=await executeDistillation({home:'test-home',prompt:'PRIVATE-INPUT',resolve:async()=>({command:'fixture',args:[]}),spawnProcess:fixture((c,args,options)=>{
-  cwd=options.cwd;assert.equal(options.windowsHide,true);assert.equal(options.shell,false);assert.equal(options.env.CODEX_HOME,'test-home');assert.ok(args.includes('--ignore-user-config'));assert.ok(args.includes('--ephemeral'));assert.ok(args.includes('features.shell_tool=false'));assert.ok(!args.includes('PRIVATE-INPUT'));c.stdin.on('data',x=>received+=x);
+ const output=await executeDistillation({home:'test-home',prompt:'PRIVATE-INPUT',model:'test-model',reasoningEffort:'xhigh',resolve:async()=>({command:'fixture',args:[]}),spawnProcess:fixture((c,args,options)=>{
+  cwd=options.cwd;assert.equal(args[args.indexOf('--model')+1],'test-model');assert.ok(args.includes('model_reasoning_effort="xhigh"'));assert.equal(options.windowsHide,true);assert.equal(options.shell,false);assert.equal(options.env.CODEX_HOME,'test-home');assert.ok(args.includes('--ignore-user-config'));assert.ok(args.includes('--ephemeral'));assert.ok(args.includes('features.shell_tool=false'));assert.ok(!args.includes('PRIVATE-INPUT'));c.stdin.on('data',x=>received+=x);
   const out=Buffer.from(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'中文草稿'}})+'\n'+JSON.stringify({type:'turn.completed'})+'\n');for(const byte of out)c.stdout.write(Buffer.from([byte]));c.exitCode=0;c.emit('close',0);
  }),stop:async()=>{}});
  assert.equal(output,'中文草稿');assert.equal(received,'PRIVATE-INPUT');await assert.rejects(fs.stat(cwd));

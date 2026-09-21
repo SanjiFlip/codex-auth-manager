@@ -40,3 +40,5 @@ npm test
 禁止提交真实 auth.json、访问令牌、刷新令牌、账号库、加密迁移文件、原始日志、数据库、个人截图或签名证书。测试只使用明确标注的合成数据。提交前检查暂存区，不能仅依赖 .gitignore。
 
 安全问题按 [安全说明](SECURITY.md) 处理。
+
+界面改动还应运行 `npx electron scripts/design-smoke.js`，覆盖主页面、深浅主题、长列表和悬浮窗布局。性能对比可运行 `node scripts/performance-benchmark.js 55e95f0`；仅使用合成数据，不扫描个人会话。

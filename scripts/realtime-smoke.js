@@ -38,7 +38,8 @@ setTimeout(()=>{console.error('REALTIME FAIL: timeout');app.exit(1)},50000);
   fs.appendFileSync(file,JSON.stringify({type:'event_msg',timestamp:later,payload:{type:'token_count',rate_limits:{plan_type:'pro',primary:{used_percent:49,window_minutes:10080,resets_at:resetAt}}}})+'\n');
   await until(()=>evaluate(meter,'document.querySelector("#session").textContent === "51%"'),'newer local quota must replace old official snapshot');
   assert.ok(await evaluate(meter,'!document.querySelector("#session-reset").textContent.includes("已到期")'),'local Unix reset timestamp displays correctly');
-  console.log('PASS: newer local quota overrides old official cache');
+  await until(()=>evaluate(main,'document.querySelector(".active-meters")?.textContent.includes("51%")'),'local quota must update main window within 9 seconds');
+  console.log('PASS: newer local quota overrides old official cache in both windows');
 
   fs.appendFileSync(file,JSON.stringify({type:'event_msg',timestamp:new Date().toISOString(),payload:{type:'token_count',rate_limits:{plan_type:'pro',primary:{used_percent:0,window_minutes:10080,resets_at:resetAt}}}})+'\n');
 

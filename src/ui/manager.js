@@ -1,5 +1,7 @@
 'use strict';
 const paths = {
+  spark:'m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4L12 3M20 2v4m-2-2h4',
+  book:'M12 5v16M12 5C8 2 4 3 2 4v15c4-2 7-1 10 2 3-3 6-4 10-2V4c-2-1-6-2-10 1Z',
   users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87',
   chart:'M4 3v17h17M8 15v-4M13 15V7M18 15v-6', clock:'M12 8v4l3 2',
   shield:'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3M8 12l3 3 5-6',
@@ -37,17 +39,19 @@ function demoApi() {
 const api=isDemo?demoApi():window.codexAuth;
 const knowledge=window.createKnowledgeUI({api,demo:isDemo,toast});
 if(window.codexAuth)document.body.classList.add('desktop');
-let renderedPage=null;
+let renderedPage=null,lastRenderedKey='';
+// Compare only what the dashboard displays, not scanner bookkeeping timestamps.
+function viewKey(next,usage){return JSON.stringify([page,next.accounts.map(a=>[a.id,a.displayName,a.email,a.planType,a.isActive,a.needsReauth,a.quotaSnapshot?.session,a.quotaSnapshot?.weekly,a.quotaSnapshot?.resetCredits,shortDate(a.quotaSnapshotUpdatedAt||a.quotaSnapshot?.checkedAt)]),next.current,next.credentialMode,next.switchStatus,next.settings,usage?.daily,usage?.tokenUsage,usage?.models,usage?.sessionsAnalyzed,usage?.scannedFiles,usage?.failedFiles,page==='quotas'?Math.floor(Date.now()/60000):usageStats.dayKey(new Date())]);}
 function syncWindowTheme(){api?.setWindowTheme?.(document.body.classList.contains('dark')).catch(e=>toast(e.message))}
 if(isDemo)$('#demo-badge').hidden=false;
-function heading(title, subtitle, actions='') { return `<div class="page-heading"><div><div class="eyebrow">YOUR ACCOUNTS. ONE PLACE.</div><h1>${title}</h1><p class="subtitle">${subtitle}</p></div><div class="actions">${actions}</div></div>`; }
+function heading(title, subtitle, actions='') { return `<div class="page-heading"><div><div class="eyebrow">CODEX / WORKSPACE</div><h1>${title}</h1><p class="subtitle">${subtitle}</p></div><div class="actions">${actions}</div></div>`; }
 function meter(label, window, detail=false, checkedAt=null) {
   const used=window?.usedPercent;
   const remaining=typeof used==='number'&&Number.isFinite(used)?Math.round(Math.max(0,Math.min(100,100-used))):null;
   return `<div class="meter"><div class="meter-label"><span>${label}</span><strong>${remaining===null?'—':`${remaining}<small>%</small>`}</strong></div><div class="meter-track"><div class="meter-fill ${remaining!==null&&remaining<25?'warn':''}" style="width:${remaining??0}%"></div></div>${detail?`<div class="meter-foot">${checkedAt?'快照时间 · '+escape(shortDate(checkedAt)):'尚无本地额度记录'}</div>`:''}</div>`;
 }
 function sessionMeter(account,detail=false){
-  if(!window.showFiveHour(account?.planType,state.settings))return '<div class="meter pro-session-disabled"><div class="meter-label"><span>5 小时额度</span><strong>已关闭展示</strong></div>'+ (detail?'<div class="meter-foot">可在应用设置中启用 Pro 5 小时额度</div>':'')+'</div>';
+  if(!window.showFiveHour(account?.planType,state.settings))return '';
   return meter('5 小时剩余额度',account?.quotaSnapshot?.session,detail,account?.quotaSnapshotUpdatedAt);
 }
 function identity(account,i=0,large=false) { return `<div class="identity"><div class="avatar ${['forest','lilac','blue','sand'][i%4]}">${escape((account.displayName||account.email||'C').slice(0,1).toUpperCase())}</div><div><h2>${escape(account.displayName||'当前登录')}${large?`<span class="badge">${escape(window.planLabel(account.planType))}</span>`:''}</h2><p class="email">${escape(account.email||'未提供邮箱')}</p></div></div>`; }
@@ -63,12 +67,13 @@ function renderCards() {
 function renderAccounts() {
   const current=state.accounts.find(a=>a.isActive)|| (state.current?.email?{email:state.current.email,displayName:'当前登录 · 尚未保存'}:null);
   const q=current?.quotaSnapshot;
+  const overview=renderRichOverview(current),overviewAt=overview.indexOf('<div class="overview-row">');
   $('#content').innerHTML=heading('账号管理','每个身份，各就其位。轻松管理你的 Codex 账号。',button('悬浮窗','widget','','chart')+button('保存当前账号','save','','download')+button('添加账号','add','primary','plus'))+
     (state.credentialMode!=='file'?`<div class="notice"><span>当前存储模式：${escape(state.credentialMode||'未知')}。切换功能需要文件凭据管理；启用后需重新登录或保存当前登录。</span>${button('前往设置','settings')}</div>`:'')+
     (state.switchStatus?.phase!=='idle'&&state.switchStatus?.message?`<div class="flow">${icon('info')}<span>${escape(state.switchStatus.message)}</span></div>`:'')+
     `<section class="active-panel"><div><div class="section-label">● &nbsp; 当前凭据账号 <span style="opacity:.6">/ CURRENT ACCOUNT</span></div>${current?identity(current,0,true):'<div class="identity"><div class="avatar forest">C</div><div><h2>尚未连接账号</h2><p>添加账号，让工作准备就绪</p></div></div>'}<div class="active-note">${icon('shield')} ${current?'以本机凭据为准 · 应用内身份请在 Codex 核对':'支持官方浏览器授权 · 无需输入密码到本工具'}</div></div><div class="active-meters">${sessionMeter(current,true)}${meter('周剩余额度',q?.weekly,true,current?.quotaSnapshotUpdatedAt)}</div></section>`+
-    renderRichOverview(current)+
-    `<div class="list-toolbar"><div class="list-title">我的账号<span>${state.accounts.length}</span></div><div class="actions"><div class="list-filters"><button class="filter ${filter==='all'?'active':''}" data-filter="all">全部</button><button class="filter ${filter==='ready'?'active':''}" data-filter="ready">已保存</button><button class="filter ${filter==='reauth'?'active':''}" data-filter="reauth">待授权</button></div><label class="search">${icon('search')}<input id="search" aria-label="搜索账号" placeholder="搜索账号或邮箱…" value="${escape(search)}"></label><button class="btn" data-action="refresh" aria-label="刷新账号">${icon('refresh')}</button></div></div><div class="cards" id="cards"></div><div class="hint-line">${icon('info')}切换会关闭并重新启动 Codex，请先保存当前任务。额度来自官方查询或本地快照，缺失数据以「—」表示。</div>`;
+    overview.slice(0,overviewAt)+
+    `<div class="list-toolbar"><div class="list-title">我的账号<span>${state.accounts.length}</span></div><div class="actions"><div class="list-filters"><button class="filter ${filter==='all'?'active':''}" data-filter="all">全部</button><button class="filter ${filter==='ready'?'active':''}" data-filter="ready">已保存</button><button class="filter ${filter==='reauth'?'active':''}" data-filter="reauth">待授权</button></div><label class="search">${icon('search')}<input id="search" aria-label="搜索账号" placeholder="搜索账号或邮箱…" value="${escape(search)}"></label><button class="btn" data-action="refresh" aria-label="刷新账号">${icon('refresh')}</button></div></div><div class="cards" id="cards"></div><div class="hint-line">${icon('info')}切换会关闭并重新启动 Codex，请先保存当前任务。额度来自官方查询或本地快照，缺失数据以「—」表示。</div>`+overview.slice(overviewAt);
   renderCards(); $('#search').addEventListener('input',e=>{search=e.target.value;renderCards()});
 }
 function renderUsage() {
@@ -87,7 +92,7 @@ function demoStatistics(){
 }
 function renderTrend(){
   const data=usageStats.summarize(statistics),max=Math.max(1,...data.daily.map(d=>d.tokens));
-  return `<div class="panel"><div class="panel-heading"><h2>最近 7 天 · Token 趋势</h2><span>本机记录 · ${data.loaded?'已加载':'待加载'}</span></div>${data.loaded?`<div class="chart-bars">${data.daily.map(d=>`<div class="chart-column"><em>${usageStats.compact(d.tokens)}</em><div class="bar" title="${d.day} · ${number(d.tokens)} tokens" style="--bar-height:${Math.max(2,d.tokens/max*64)}px"></div><small>${d.label}</small></div>`).join('')}</div><div class="chart-legend"><span>● 原始 total_tokens · 缓存输入不重复相加</span><span>累计 ${usageStats.compact(data.weekTokens)}</span></div>`:`<div class="empty-chart">${statisticsLoading?'正在读取本机会话记录…':'尚未读取统计数据'}</div>`}</div>`;
+  return `<div class="panel"><div class="panel-heading"><h2>最近 7 天 · Token 趋势</h2><span>本机记录 · ${data.loaded?'已加载':'待加载'}</span></div>${data.loaded?`<div class="chart-bars">${data.daily.map(d=>`<div class="chart-column"><em>${usageStats.compact(d.tokens)}</em><div class="bar" title="${d.day} · ${number(d.tokens)} tokens" style="--bar-height:${Math.max(2,d.tokens/max*92)}px"></div><small>${d.label}</small></div>`).join('')}</div><div class="chart-legend"><span>● 原始 total_tokens · 缓存输入不重复相加</span><span>累计 ${usageStats.compact(data.weekTokens)}</span></div>`:`<div class="empty-chart">${statisticsLoading?'正在读取本机会话记录…':'尚未读取统计数据'}</div>`}</div>`;
 }
 function renderRichOverview(current){
   const data=usageStats.summarize(statistics),q=current?.quotaSnapshot;
@@ -103,7 +108,7 @@ function renderDiagnostics(){
   $('#content').innerHTML=heading('环境体检','只读取本机状态，帮助定位登录与切换问题。',button('重新检查','refresh','','refresh'))+`<div class="panel"><h2>Codex 与凭据</h2>${row('Codex 桌面版本',escape(d.codexVersion||'演示环境 / 未识别'),value(!!d.codexVersion))}${row('文件凭据管理',escape(state.credentialMode),value(state.credentialMode==='file'))}${row('当前凭据可识别','检查本机 auth.json 格式和账号身份，不验证在线会话。',value(d.authRecognized))}${row('当前快照同步','当前凭据与本工具保存的快照是否一致。',value(d.authSynchronized))}${row('本地日志数据库','只读检查额度日志结构。',value(d.dbReadable))}${row('会话文件',number(d.sessionFiles)+' 个可发现文件','')}${row('账户库',escape(state.storeRoot),button('打开目录','open-store'))}</div><div class="panel"><h2>排障建议</h2><p class="help-text">无法打开浏览器：先确认 codex --version 可执行，再重新添加账号。<br>无法切换：确认文件管理已启用，保存任务并完全退出 Codex 后再试。<br>额度为空：点击账号的「官方刷新」，或等待 Codex 产生本地记录。<br>仅 access token 到期不代表账号失效，官方服务可继续刷新。</p></div>`;
 }
 function renderSettings() {
-  $('#content').innerHTML=heading('应用设置','让账户管理融入你的工作方式。')+`<div class="panel"><h2>登录与切换</h2>${row('文件凭据管理',`当前：${escape(state.credentialMode||'未知')}。启用会备份并修改 config.toml 的凭据存储设置；系统凭据不会自动迁移。`,button(state.credentialMode==='file'?'已启用':'启用文件管理','enable-file','', '',state.credentialMode==='file'?'disabled':''))}${row('切换后重启 Codex','先正常关闭并确认退出，再替换凭据。退出超时会停止切换，不强行终止任务。','<span class="tag green">始终启用</span>')}${row('Pro 5 小时额度','默认关闭，适用于 Pro 5x 和 Pro 20x。开启后显示官方 5 小时快照；周额度始终显示。仅控制展示，不改变官方限制。',`<input type="checkbox" id="pro-five-hour" aria-label="Pro 显示 5 小时额度" ${state.settings.proFiveHourEnabled?'checked':''}>`)}${row('主题与悬浮窗','浅灰玻璃与系统蓝，主窗口和桌面仪表盘统一设计。',`<div class="actions">${button('切换明暗','theme')}${button('打开悬浮窗','widget')}</div>`)}${row('隐私显示','模糊隐藏邮箱，悬停时查看。',`<input type="checkbox" id="privacy" aria-label="隐藏邮箱" ${document.body.classList.contains('privacy')?'checked':''}>`)}${row('开机启动','登录系统时启动本工具。',`<input type="checkbox" id="autostart" aria-label="开机启动" ${state.settings.launchAtLogin?'checked':''}>`)}</div><div class="panel"><h2>本地数据</h2>${row('Codex 目录',escape(state.codexDir),button('打开目录','open-codex'))}${row('账户库',escape(state.storeRoot),button('打开目录','open-store'))}${row('加密凭据迁移','使用迁移密码导入或导出 .codexauth 文件。导入只保存，不切换。',`<div class="actions">${button('导入','import')}${button('导出当前','export')}</div>`)}</div><div class="panel"><h2>关于</h2><p class="help-text">Codex Auth Manager v0.5.0 · ${escape(state.platformName||'Windows')} 预览版<br>基于 GboyCode/CodexAuth（MIT）开发，参考 Mintimate/codex-auth-switch 的登录体验。<br>浏览器登录由本机官方 Codex CLI 发起。本工具与 OpenAI 无官方关联。</p></div>`;
+  $('#content').innerHTML=heading('应用设置','让账户管理融入你的工作方式。')+`<div class="panel"><h2>登录与切换</h2>${row('文件凭据管理',`当前：${escape(state.credentialMode||'未知')}。启用会备份并修改 config.toml 的凭据存储设置；系统凭据不会自动迁移。`,button(state.credentialMode==='file'?'已启用':'启用文件管理','enable-file','', '',state.credentialMode==='file'?'disabled':''))}${row('切换后重启 Codex','先正常关闭并确认退出，再替换凭据。退出超时会停止切换，不强行终止任务。','<span class="tag green">始终启用</span>')}</div><div class="panel"><h2>外观与工作方式</h2>${row('Pro 5 小时额度','默认关闭，适用于 Pro 5x 和 Pro 20x。开启后显示官方 5 小时快照；周额度始终显示。仅控制展示，不改变官方限制。',`<input type="checkbox" id="pro-five-hour" aria-label="Pro 显示 5 小时额度" ${state.settings.proFiveHourEnabled?'checked':''}>`)}${row('主题与悬浮窗','系统蓝与中性灰，浅色和深色主题均保持清晰对比。',`<div class="actions">${button('切换明暗','theme')}${button('打开悬浮窗','widget')}</div>`)}${row('隐私显示','模糊隐藏邮箱，悬停时查看。',`<input type="checkbox" id="privacy" aria-label="隐藏邮箱" ${document.body.classList.contains('privacy')?'checked':''}>`)}${row('开机启动','登录系统时启动本工具。',`<input type="checkbox" id="autostart" aria-label="开机启动" ${state.settings.launchAtLogin?'checked':''}>`)}</div><div class="panel"><h2>本地数据</h2>${row('Codex 目录',escape(state.codexDir),button('打开目录','open-codex'))}${row('账户库',escape(state.storeRoot),button('打开目录','open-store'))}${row('加密凭据迁移','使用迁移密码导入或导出 .codexauth 文件。导入只保存，不切换。',`<div class="actions">${button('导入','import')}${button('导出当前','export')}</div>`)}</div><div class="panel"><h2>关于</h2><p class="help-text">Codex Auth Manager v0.5.0 · ${escape(state.platformName||'Windows')} 预览版<br>基于 GboyCode/CodexAuth（MIT）开发，参考 Mintimate/codex-auth-switch 的登录体验。<br>浏览器登录由本机官方 Codex CLI 发起。本工具与 OpenAI 无官方关联。</p></div>`;
   $('#pro-five-hour').onchange=e=>run(async()=>{try{state=await api.updateSettings({proFiveHourEnabled:e.target.checked})}finally{render()}});
   $('#privacy').onchange=e=>{document.body.classList.toggle('privacy',e.target.checked);localStorage.setItem('privacy',e.target.checked?'1':'0')};
   $('#autostart').onchange=e=>run(async()=>{state=await api.updateSettings({launchAtLogin:e.target.checked});render()});
@@ -115,10 +120,11 @@ function render() {
   const focus=focused?{id:focused.id,start:focused.selectionStart,end:focused.selectionEnd}:null;
   if(renderedPage!==page){$('.page-scroll').scrollTop=0;renderedPage=page}
   $('#nav-count').textContent=state.accounts.length;
-  document.querySelectorAll('[data-page]').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
+  document.querySelectorAll('[data-page]').forEach(el=>{el.classList.toggle('active',el.dataset.page===page);if(el.dataset.page===page)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current')});
   $('#breadcrumb').textContent={accounts:'账号管理',usage:'用量概览',quotas:'订阅额度',diagnostics:'环境体检',activity:'操作记录',settings:'应用设置',distill:'蒸馏工作台',memory:'记忆库'}[page];
   if(page==='distill'||page==='memory')knowledge.render(page,$('#content')); else if(page==='accounts')renderAccounts(); else if(page==='usage')renderUsage(); else if(page==='settings')renderSettings(); else if(page==='quotas')renderQuotas(); else if(page==='diagnostics')renderDiagnostics();
-  else $('#content').innerHTML=heading('操作记录','记录本次工具会话中的操作，不记录密码或令牌。')+`<div class="panel"><h2>本次会话</h2>${events.length?events.map(e=>`<div class="log-entry"><time>${escape(e.time)}</time><span>${escape(e.message)}</span></div>`).join(''):'<p class="help-text">暂时没有操作。切换和账户管理结果会出现在这里。</p>'}</div>`;
+  else $('#content').innerHTML=heading('操作记录','查看本次启动以来的操作结果与问题记录。密码和令牌不会出现在这里。')+`<div class="panel"><h2>本次会话</h2>${events.length?events.map(e=>`<div class="log-entry"><time>${escape(e.time)}</time><span>${escape(e.message)}</span></div>`).join(''):'<div class="k-empty"><span class="k-empty-symbol">✓</span><strong>工作空间已就绪</strong><p>账号切换、额度刷新与管理结果会记录在这里。<br>记录仅保留在本次工具会话中。</p></div>'}</div>`;
+  lastRenderedKey=viewKey(state,statistics);
   if(focus){const input=document.getElementById(focus.id);if(input){input.focus({preventScroll:true});if(focus.start!==null)input.setSelectionRange(focus.start,focus.end)}}
 }
 async function refresh() { state=await api.getState(); render(); }
@@ -129,7 +135,7 @@ async function refreshLive(){
     const [next,nextUsage]=await Promise.all([api.getState(),api.getStatistics()]);
     if(busy||loginActive||epoch!==liveEpoch){livePending=true;return}
     state=next;statistics=nextUsage;
-    if(['accounts','usage','quotas'].includes(page))render();
+    if(['accounts','usage','quotas'].includes(page)&&viewKey(next,nextUsage)!==lastRenderedKey)render();
   }catch(e){toast('自动刷新失败：'+e.message)}
   finally{liveReading=false;if(livePending&&!busy&&!loginActive){livePending=false;refreshLive()}}
 }
@@ -137,7 +143,7 @@ function refreshLocalInBackground(){
   api.refreshLocalData?.().catch(()=>{const status=$('.status-pill');status.title='本地读取失败，保留上次快照；稍后重试。'});
 }
 function liveTick(){refreshLive();refreshLocalInBackground()}
-async function run(task) { if(busy)return; busy=true;liveEpoch++; try{await task()}catch(e){toast(e.message||'操作失败');log('操作失败：'+(e.message||'未知错误'))}finally{busy=false;if(livePending){livePending=false;refreshLive()}} }
+async function run(task) { if(busy)return; busy=true;liveEpoch++; try{await task()}catch(e){toast(e.message||'操作失败');log('操作失败：'+(e.message||'未知错误'))}finally{busy=false;if(page==='accounts'&&$('#cards'))renderCards();if(livePending){livePending=false;refreshLive()}} }
 function modal(title,body,actions) { const el=$('#modal'); el.innerHTML=`<div class="modal-header"><h2 id="modal-title">${title}</h2><button class="close-btn" data-action="close" aria-label="关闭">×</button></div>${body}<div class="modal-actions">${actions}</div>`; if(!el.open)el.showModal(); }
 async function closeModal() { if(loginActive){await api.cancelLogin();loginActive=false;} $('#modal').close(); }
 function loginView(status) {
@@ -153,7 +159,7 @@ async function act(action,id) {
   const account=state.accounts.find(a=>a.id===id);
   if(action==='close')return closeModal();
   if(action==='widget')return api.toggleWidget();
-  if(action==='statistics-refresh')return loadStatistics();
+  if(action==='statistics-refresh')return run(async()=>{toast('正在读取本机统计…');await api.refreshLocalData?.();await loadStatistics();});
   if(action==='theme'){document.body.classList.toggle('dark');localStorage.setItem('theme',document.body.classList.contains('dark')?'dark':'light');syncWindowTheme();return}
   if(action==='quota-all')return refreshAllQuotas();
   if(action==='diagnostics'){page='diagnostics';render();return}
@@ -184,7 +190,7 @@ async function act(action,id) {
   if(action==='official-refresh')return run(async()=>{toast('正在读取官方套餐与额度…');state=await api.refreshOfficial(id);$('#modal').close();render();log('已刷新官方套餐与额度');toast('官方套餐与额度已更新')});
   if(action==='rename')return run(async()=>{state=await api.updateAccount(id,{displayName:$('#account-name').value});$('#modal').close();render();log('已更新账号名称')});
   if(action==='delete')return run(async()=>{state=await api.deleteAccount(id);$('#modal').close();render();log('已移除账户库记录');toast('账号已从账户库移除')});
-  if(action==='refresh')return run(async()=>{await refresh();toast('本地账号状态已刷新')});
+  if(action==='refresh')return run(async()=>{toast('正在读取本地状态…');await api.refreshLocalData?.();await refresh();toast('本地账号状态已刷新')});
   if(action==='usage-refresh')return run(async()=>{dashboard=await api.getDashboard();render();log('已读取本机用量统计')});
   if(action==='enable-file')return modal('启用文件凭据管理','<p>将备份 Codex 配置，并将登录凭据存储设为 file。此操作不会把系统凭据自动复制到文件；你可能需要重新登录。</p>',button('取消','close')+button('启用并备份配置','enable-file-confirm','primary'));
   if(action==='enable-file-confirm')return run(async()=>{state=await api.enableFileStore();$('#modal').close();render();log('已启用文件凭据管理');toast('已备份并更新配置')});
@@ -193,7 +199,7 @@ async function act(action,id) {
   if(action.startsWith('portable-'))return run(async()=>{const password=$('#password').value;await api[action==='portable-import'?'importPortable':'exportPortable'](password);$('#password').value='';$('#modal').close();await refresh()});
 }
 document.addEventListener('click',e=>{
-  const nav=e.target.closest('[data-page]'); if(nav){page=nav.dataset.page;render();return}
+  const nav=e.target.closest('[data-page]'); if(nav){e.preventDefault();page=nav.dataset.page;render();return}
   const f=e.target.closest('[data-filter]');if(f){filter=f.dataset.filter;render();return}
   const action=e.target.closest('[data-action]');if(action&&!action.disabled)act(action.dataset.action,action.dataset.id).catch(e=>toast(e.message));
 });

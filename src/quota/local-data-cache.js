@@ -1,45 +1,41 @@
 const { LOCAL_DATA_CACHE_TTL_MS } = require("./constants");
 
 function createLocalDataCache(ttlMs = LOCAL_DATA_CACHE_TTL_MS) {
-  let sessionFilesCache = null;
-  let sessionFilesDir = null;
-  let sessionFilesExpiresAt = 0;
   const entries = new Map();
+  const fileEntries = new Map();
 
   function invalidate() {
-    sessionFilesCache = null;
-    sessionFilesDir = null;
-    sessionFilesExpiresAt = 0;
     entries.clear();
+    fileEntries.clear();
   }
 
-  function isFresh(expiresAt) {
-    return Date.now() < expiresAt;
+  // Install the pending read immediately so main and meter share the same I/O.
+  // Identity checks prevent an older read from restoring an invalidated value.
+  async function memo(map, key, loader) {
+    const hit = map.get(key);
+    if (hit && (hit.pending || Date.now() < hit.expiresAt)) return hit.pending || hit.value;
+    const entry = {};
+    map.set(key, entry);
+    if (map.size > 24) map.delete(map.keys().next().value);
+    entry.pending = (async () => {
+      try {
+        const value = await loader();
+        if (map.get(key) === entry) {
+          entry.value = value;
+          entry.expiresAt = Date.now() + ttlMs;
+          entry.pending = null;
+        }
+        return value;
+      } catch (error) {
+        if (map.get(key) === entry) map.delete(key);
+        throw error;
+      }
+    })();
+    return entry.pending;
   }
 
-  async function getSessionFiles(dir, loader) {
-    const now = Date.now();
-    if (sessionFilesCache && sessionFilesDir === dir && isFresh(sessionFilesExpiresAt)) {
-      return sessionFilesCache;
-    }
-    const files = await loader(dir);
-    sessionFilesCache = files;
-    sessionFilesDir = dir;
-    sessionFilesExpiresAt = now + ttlMs;
-    return files;
-  }
-
-  async function cached(key, loader) {
-    const hit = entries.get(key);
-    if (hit && isFresh(hit.expiresAt)) return hit.value;
-    const value = await loader();
-    entries.set(key, { value, expiresAt: Date.now() + ttlMs });
-    if (entries.size > 24) {
-      const firstKey = entries.keys().next().value;
-      entries.delete(firstKey);
-    }
-    return value;
-  }
+  function getSessionFiles(dir, loader) { return memo(fileEntries, dir, () => loader(dir)); }
+  function cached(key, loader) { return memo(entries, key, loader); }
 
   function buildDashboardKey(scope) {
     return [

@@ -104,11 +104,13 @@ const {createKnowledgeStore,markdown:knowledgeMarkdown}=require('./knowledge/sto
 const {createSessionLibrary}=require('./knowledge/sessions');
 const {executeDistillation}=require('./knowledge/cli');
 const {createWorkbench}=require('./knowledge/workbench');
+const {readModelCatalog,resolveModelSelection}=require('./knowledge/models');
 const knowledgeStore=createKnowledgeStore({root:path.join(storeRoot(),'knowledge'),
   encrypt:text=>{if(!safeStorage.isEncryptionAvailable())throw Error('系统加密服务不可用。');return safeStorage.encryptString(text).toString('base64')},
   decrypt:text=>safeStorage.decryptString(Buffer.from(text,'base64'))});
 const sessionLibrary=createSessionLibrary(codexDir());
 const workbench=createWorkbench({library:sessionLibrary,store:knowledgeStore,
+  resolveModel:request=>resolveModelSelection(codexDir(),request),
   execute:options=>executeDistillation({...options,home:codexDir()}),
   withAccount:task=>runAccountOperation(async()=>{
     if(officialLogin.busy())throw Error('请先完成或取消账号添加。');
@@ -4497,11 +4499,15 @@ function registerIpc() {
     if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('不允许从此窗口访问知识库。');
     return handler(...args);
   });
+  knowledgeHandle('knowledge:models',()=>readModelCatalog(codexDir()));
   knowledgeHandle('knowledge:list',()=>knowledgeStore.list());
   knowledgeHandle('knowledge:save',input=>knowledgeStore.save(input));
   knowledgeHandle('knowledge:remove',(id,revision)=>knowledgeStore.remove(id,revision));
-  knowledgeHandle('knowledge:sessions',()=>sessionLibrary.list());
-  knowledgeHandle('knowledge:transcript',id=>sessionLibrary.transcript(id));
+  knowledgeHandle('knowledge:sessions',()=>sessionLibrary.list({force:true}));
+  knowledgeHandle('knowledge:transcript',async id=>{
+    try { return await sessionLibrary.transcript(id); }
+    catch(error) { if(error.code==='SESSION_UNAVAILABLE')return {unavailable:true,messages:[]};throw error; }
+  });
   knowledgeHandle('knowledge:start',request=>workbench.start(request));
   knowledgeHandle('knowledge:state',()=>workbench.state());
   knowledgeHandle('knowledge:cancel',()=>workbench.cancel());

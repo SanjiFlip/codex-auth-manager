@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("codexAuth", {
+  knowledgeModels:()=>ipcRenderer.invoke('knowledge:models'),
   knowledgeList:()=>ipcRenderer.invoke('knowledge:list'),
   knowledgeSave:input=>ipcRenderer.invoke('knowledge:save',input),
   knowledgeRemove:(id,revision)=>ipcRenderer.invoke('knowledge:remove',id,revision),

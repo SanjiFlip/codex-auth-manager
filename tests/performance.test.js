@@ -1,0 +1,52 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const { createLocalDataCache } = require('../src/quota/local-data-cache');
+const { createSessionLibrary } = require('../src/knowledge/sessions');
+
+test('concurrent dashboard and file requests share work; invalidation rejects stale cache writes', async () => {
+  const cache = createLocalDataCache(10000);
+  let reads = 0;
+  let release;
+  const loader = () => { reads++; return new Promise(resolve => { release = resolve; }); };
+  const a = cache.cached('dashboard', loader);
+  const b = cache.cached('dashboard', loader);
+  assert.equal(reads, 1);
+  cache.invalidate();
+  assert.equal(await cache.cached('dashboard', async () => 'new'), 'new');
+  release('old');
+  assert.deepEqual(await Promise.all([a, b]), ['old', 'old']);
+  assert.equal(await cache.cached('dashboard', async () => 'unexpected'), 'new');
+  reads = 0;
+  await Promise.all(Array.from({ length: 12 }, () => cache.getSessionFiles('fixture', async () => { reads++; return []; })));
+  assert.equal(reads, 1);
+  await assert.rejects(cache.cached('failure', async () => { throw Error('retry'); }));
+  assert.equal(await cache.cached('failure', async () => 'recovered'), 'recovered');
+});
+
+test('session library reuses bounded results and reloads appended messages with intact indices', async t => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), 'cam-performance-'));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  await fs.mkdir(path.join(home, 'sessions'));
+  const file = path.join(home, 'sessions', 'sample.jsonl');
+  const row = n => JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: `Message ${n}` }] } });
+  await fs.writeFile(file, Array.from({ length: 1500 }, (_, n) => row(n)).join('\n') + '\n');
+  require('../scripts/fixtures/knowledge-index').writeKnowledgeIndex(home,[{id:'sample',file}]);
+  const lib = createSessionLibrary(home);
+  const first = await lib.list();
+  assert.strictEqual(await lib.list(), first, 'warm listing should reuse the snapshot');
+  const id = first.items[0].id;
+  const result = await lib.transcript(id);
+  assert.equal(result.messages.length, 500);
+  assert.equal(result.messages[0].index, 1000);
+  assert.strictEqual(await lib.transcript(id), result, 'unchanged transcript should avoid parsing');
+  await fs.appendFile(file, row(1500) + '\n');
+  const updated = await lib.transcript(id);
+  assert.equal(updated.messages.at(-1).index, 1500);
+  assert.equal(updated.messages.at(-1).text, 'Message 1500');
+  assert.notStrictEqual(updated, result);
+  const forced = await lib.list({ force: true });
+  assert.notStrictEqual(forced, first);
+});

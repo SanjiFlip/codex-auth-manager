@@ -1,32 +1,112 @@
-const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
-const MAX_BYTES=32*1024*1024;
-// No renderer-supplied paths are ever opened. Symlinks are excluded and real paths rechecked.
-function createSessionLibrary(home){
-  const refs=new Map();
-  async function checked(file){const root=await fs.realpath(path.join(home,'sessions'));const actual=await fs.realpath(file);const rel=path.relative(root,actual);if(rel.startsWith('..')||path.isAbsolute(rel))throw Error('会话不在允许的目录中。');const stat=await fs.stat(actual);if(!stat.isFile()||stat.size>MAX_BYTES)throw Error('会话文件超过 32 MB，请使用较小的会话。');return actual;}
-  async function list(){
-    const found=[];let visited=0;
-    async function walk(dir,depth=0){if(depth>5)return;let entries;try{entries=await fs.readdir(dir,{withFileTypes:true})}catch(e){if(e.code==='ENOENT')return;throw e;}
-      for(const entry of entries.sort((a,b)=>b.name.localeCompare(a.name))){if(++visited>12000)return;const file=path.join(dir,entry.name);if(entry.isDirectory())await walk(file,depth+1);else if(entry.isFile()&&entry.name.endsWith('.jsonl')){const stat=await fs.stat(file);found.push({file,mtime:stat.mtimeMs})}}
-    }
-    await walk(path.join(home,'sessions'));const items=[];let skipped=0;
-    for(const f of found.sort((a,b)=>b.mtime-a.mtime).slice(0,300)){
-      try{const file=await checked(f.file),handle=await fs.open(file,'r'),buffer=Buffer.alloc(65536);let bytesRead;try{({bytesRead}=await handle.read(buffer,0,buffer.length,0))}finally{await handle.close()}
-        let meta={};for(const line of buffer.subarray(0,bytesRead).toString('utf8').split('\n')){try{const e=JSON.parse(line);if(e.type==='session_meta'){meta=e.payload||{};break}}catch{}}
-        const id=crypto.createHash('sha256').update(file).digest('hex');refs.set(id,file);
-        items.push({id,title:meta.cwd?path.basename(meta.cwd):path.basename(file,'.jsonl'),project:meta.cwd||'',sessionId:meta.id||path.basename(file,'.jsonl'),updatedAt:new Date(f.mtime).toISOString()});
-      }catch{skipped++}
-    }
-    return {items,skipped,limited:found.length>300||visited>12000};
+const fs = require('node:fs/promises');
+const { createReadStream } = require('node:fs');
+const { createInterface } = require('node:readline');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const {activeSessions,normalized}=require('./projects');
+const MAX_BYTES = 32 * 1024 * 1024;
+const hash = text => crypto.createHash('sha256').update(text).digest('hex');
+const signature = stat => `${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}:${stat.ino}`;
+
+// Renderer paths are never accepted. Containment is checked even for cache hits.
+function createSessionLibrary(home) {
+  const refs = new Map(), transcripts = new Map(), pending = new Map();
+  let snapshot, expiresAt = 0, listing, retainedChars = 0;
+  async function checked(file) {
+    const root = await fs.realpath(path.join(home, 'sessions'));
+    const actual = await fs.realpath(file), rel = path.relative(root, actual);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) throw Error('会话不在允许的目录中。');
+    const stat = await fs.stat(actual);
+    if (!stat.isFile() || stat.size > MAX_BYTES) throw Error('会话文件超过 32 MB，请使用较小的会话。');
+    return { actual, stat };
   }
-  async function transcript(id){const file=refs.get(id);if(!file)throw Error('请重新加载会话列表。');const text=await fs.readFile(await checked(file),'utf8');const response=[],legacy=[];let invalidLines=0;
-    for(const line of text.split('\n')){let e;try{e=JSON.parse(line)}catch{if(line.trim())invalidLines++;continue;}if(!e||typeof e!=='object')continue;const p=e.payload;
-      if(e.type==='response_item'&&p?.type==='message'&&['user','assistant'].includes(p.role)&&(!p.channel||p.channel==='final')){
-        const body=(Array.isArray(p.content)?p.content:[]).filter(c=>['input_text','output_text','text'].includes(c.type)).map(c=>c.text||'').join('\n');if(body.trim())response.push({role:p.role,text:body});
-      }else if(e.type==='event_msg'&&['user_message','agent_message'].includes(p?.type)&&typeof p.message==='string'){legacy.push({role:p.type==='user_message'?'user':'assistant',text:p.message});}
+  async function scan() {
+    const scope=await activeSessions(home), items=[], nextRefs=new Map();let skipped=0;
+    for (const meta of scope.items) {
+      if (items.length >= 300) break;
+      try {
+        const {actual:file,stat}=await checked(meta.file),id=hash(file);
+        if (nextRefs.has(id)) continue;
+        nextRefs.set(id,{file,sessionId:meta.sessionId});
+        items.push({id,title:meta.title,project:meta.project,projectId:meta.projectId,sessionId:meta.sessionId,updatedAt:new Date(stat.mtimeMs).toISOString()});
+      } catch { skipped++; }
     }
-    const all=response.length?response:legacy;const offset=Math.max(0,all.length-500);return {messages:all.slice(offset).map((m,i)=>({...m,index:i+offset,text:m.text.slice(0,20000),fingerprint:crypto.createHash('sha256').update(m.role+'\n'+m.text).digest('hex'),truncated:m.text.length>20000})),limited:offset>0,invalidLines};
+    refs.clear(); for (const [id,ref] of nextRefs) refs.set(id,ref);
+    snapshot={items,skipped,limited:scope.items.length>300,projectCount:scope.projectCount};
+    expiresAt=Date.now()+15000;
+    return snapshot;
   }
-  return {list,transcript};
+  async function list({ force = false } = {}) {
+    if (listing) return listing;
+    if (!force && snapshot && Date.now() < expiresAt) return snapshot;
+    listing = scan();
+    try { return await listing; } finally { listing = null; }
+  }
+  async function parse(file) {
+    const response = [], legacy = []; let responseCount = 0, legacyCount = 0, invalidLines = 0;
+    function message(role, text, index) {
+      return { role, index, text: text.slice(0, 20000), fingerprint: hash(role + '\n' + text), truncated: text.length > 20000 };
+    }
+    const stream = createReadStream(file, { encoding: 'utf8' });
+    const lines = createInterface({ input: stream, crlfDelay: Infinity });
+    try {
+      for await (const line of lines) {
+        let e;
+        try { e = JSON.parse(line); } catch { if (line.trim()) invalidLines++; continue; }
+        if (!e || typeof e !== 'object') continue;
+        const p = e.payload;
+        if (e.type === 'response_item' && p?.type === 'message' && ['user', 'assistant'].includes(p.role) && (!p.channel || p.channel === 'final')) {
+          const body = (Array.isArray(p.content) ? p.content : []).filter(c => c && ['input_text', 'output_text', 'text'].includes(c.type) && typeof c.text === 'string').map(c => c.text).join('\n');
+          if (body.trim()) { response[responseCount % 500] = message(p.role, body, responseCount); responseCount++; }
+        } else if (!responseCount && e.type === 'event_msg' && ['user_message', 'agent_message'].includes(p?.type) && typeof p.message === 'string') {
+          legacy[legacyCount % 500] = message(p.type === 'user_message' ? 'user' : 'assistant', p.message, legacyCount); legacyCount++;
+        }
+      }
+    } finally { lines.close(); stream.destroy(); }
+    return { messages: (responseCount ? response : legacy).sort((a, b) => a.index - b.index), limited: (responseCount || legacyCount) > 500, invalidLines };
+  }
+  function unavailable(id) {
+    retainedChars -= transcripts.get(id)?.chars || 0;
+    transcripts.delete(id); refs.delete(id); snapshot = null; expiresAt = 0;
+    return Object.assign(Error('该会话已归档或不属于启用的项目，请重新读取。'), {code:'SESSION_UNAVAILABLE'});
+  }
+  async function transcript(id) {
+    const ref=refs.get(id);if(!ref)throw unavailable(id);
+    const scope=await activeSessions(home,ref.sessionId),allowed=scope.items.find(s=>s.sessionId===ref.sessionId);
+    if(!allowed)throw unavailable(id);
+    const file=allowed.file;
+    let checkedFile;
+    try { checkedFile=await checked(file); } catch(error) { if(error.code==='ENOENT')throw unavailable(id);throw error; }
+    const {actual,stat}=checkedFile;
+    if(normalized(actual)!==normalized(ref.file))throw unavailable(id);
+    const key=signature(stat);
+    const hit = transcripts.get(id);
+    if (hit?.key === key && hit.file === actual) {
+      transcripts.delete(id); transcripts.set(id, hit); return hit.value;
+    }
+    const pendingKey = `${actual}:${key}`;
+    if (pending.has(pendingKey)) return pending.get(pendingKey);
+    const work = (async () => {
+      const value = await parse(actual);
+      const latest=await activeSessions(home,ref.sessionId);
+      if(!latest.items.some(s=>s.sessionId===ref.sessionId&&normalized(s.file)===normalized(file)))throw unavailable(id);
+      const after = await checked(file);
+      if (after.actual === actual && signature(after.stat) === key) {
+        const chars = value.messages.reduce((n, m) => n + m.text.length, 0);
+        if (chars <= 4000000) {
+          retainedChars -= transcripts.get(id)?.chars || 0;
+          transcripts.delete(id); transcripts.set(id, { key, file: actual, value, chars }); retainedChars += chars;
+          while (retainedChars > 4000000 || transcripts.size > 6) {
+            const oldest = transcripts.keys().next().value;
+            retainedChars -= transcripts.get(oldest).chars; transcripts.delete(oldest);
+          }
+        }
+      }
+      return value;
+    })();
+    pending.set(pendingKey, work);
+    try { return await work; } finally { pending.delete(pendingKey); }
+  }
+  return { list, transcript };
 }
-module.exports={createSessionLibrary};
+module.exports = { createSessionLibrary };

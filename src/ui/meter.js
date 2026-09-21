@@ -106,4 +106,4 @@ function refreshLive(){
   api?.refreshLocalData?.().catch(()=>{$('#freshness').title='本地读取失败，保留上次快照；稍后重试。'});
 }
 if(api){setInterval(()=>{if(!document.hidden)refreshLive()},10000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLive()});window.addEventListener('focus',refreshLive)}
-if(api||demo){refreshLive();api?.onStateChanged?.(event=>{load();if(event.scope==='accounts')api.refreshLocalData?.().catch(()=>{})});if(api)api.getWidgetTopmost().then(s=>{$('#pin-btn').setAttribute('aria-pressed',String(s.pinned));$('#pin-btn').classList.toggle('active',s.pinned)}).catch(()=>{})}else notify('请从桌面工具打开悬浮窗');
+if(api||demo){refreshLive();api?.onStateChanged?.(event=>{if(event.scope==='knowledge')return;load();if(event.scope==='accounts')api.refreshLocalData?.().catch(()=>{})});if(api)api.getWidgetTopmost().then(s=>{$('#pin-btn').setAttribute('aria-pressed',String(s.pinned));$('#pin-btn').classList.toggle('active',s.pinned)}).catch(()=>{})}else notify('请从桌面工具打开悬浮窗');
