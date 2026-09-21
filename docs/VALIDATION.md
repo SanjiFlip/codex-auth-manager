@@ -1,4 +1,16 @@
-# 0.3.0 验证记录
+# 验证记录
+
+## 当前发布：v0.4.1
+
+- [Release 与校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.4.1)。发布源码：`f19bbaeb7f6390da4e9659dc56c5a59b0d49296a`。
+- [GitHub Actions 35599898366](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35599898366)：Windows、macOS arm64 / x64 全部成功；Mac 包含原生窗口、隔离账号与实际打包应用检查。
+- Windows 本地 40 项单元测试通过，1 项 Mac 原生检查按平台跳过；实时刷新、日志轮换与实际 EXE 隔离检查通过，51 个打包源码文件逐字节一致。
+- EXE、两种 DMG、两种 ZIP 的上传大小和 SHA-256 已校验，公开下载链接可用。Mac 包未完成 Developer ID 签名与公证。
+- 额度故障以合成事件复现；未捕获用户当时的原始异常事件，未执行真实账号在线切换。
+
+以下按历史验证时间保留记录，各版本测试数量、行为和未验证项仅代表当时状态。
+
+## 0.3.0 验证记录
 
 验证环境：Windows，2026-09-12。所有账号写入测试均使用临时目录与合成凭据，没有切换或重启用户正在运行的 Codex。
 

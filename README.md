@@ -1,22 +1,38 @@
-# Codex Auth Manager 0.4.0
+# Codex Auth Manager
+
+[![构建检查](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)
+[![版本 v0.4.1](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.4.1)
+[![许可证 MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，重新设计浅灰玻璃与系统蓝主题与 Codex Meter 悬浮窗。
 
-> 非 OpenAI 官方产品。当前为未签名预览版；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
+> 非 OpenAI 官方产品。当前 v0.4.1 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
 ## 下载安装包
 
-[下载 0.4.0 Windows x64 安装包](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.0/Codex-Auth-Manager-Setup-0.4.0-x64.exe) · [发布说明与验证信息](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.4.0)
+当前版本：**v0.4.1 预览版**。请按操作系统和处理器选择安装包。
 
-[下载 macOS Apple Silicon（M 系列）DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.0/Codex-Auth-Manager-0.4.0-arm64.dmg) · [下载 macOS Intel DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.0/Codex-Auth-Manager-0.4.0-x64.dmg)
+| 平台 | 系统要求 | 安装包 |
+| --- | --- | --- |
+| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-Setup-0.4.1-x64.exe) |
+| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-0.4.1-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-0.4.1-arm64.zip) |
+| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-0.4.1-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-0.4.1-x64.zip) |
+
+[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.4.1) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/SHA256SUMS-0.4.1.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
 
 Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple Developer ID 签名和公证。Mac 下载后把应用拖到 Applications；若被 Gatekeeper 拦截，请在确认下载来源后使用系统「隐私与安全性」中的打开选项，不要关闭系统安全保护。
 
-此版本为预览版。更新时先退出旧版 Codex Auth Manager，再运行安装程序并选择原安装目录。
+更新前从托盘或 macOS 菜单栏完全退出旧版管理工具。Windows 运行安装程序并选择原安装目录；Mac 将新版应用替换到 Applications。跨设备迁移请使用加密导出 / 导入，不要直接复制账户库。
+
+## 最新更新 · v0.4.1
+
+修复周额度刷新后又跳回 100% 的问题：同周期的异常本地 0 值不再覆盖有效额度，不完整记录不会覆盖已知使用率；日志轮换后也保留已保存的有效快照。正常的新周期重置和更新的官方查询仍然生效。
+
+Windows 与 macOS 两种架构的 [构建及检查均通过](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35599898366)。测试使用隔离账户库和合成凭据，不等于真实账号在线身份验收。详见 [更新日志](CHANGELOG.md) 和 [验证记录](docs/VALIDATION.md)。
 
 ## 界面与功能预览
 
-以下截图来自 v0.3.5 的浏览器演示模式，桌面 EXE 使用同一套界面。账号、额度及用量均为示例数据，不包含真实账号信息；点击图片可查看原图。
+以下截图来自 v0.3.5 的浏览器演示模式，Windows 与 macOS 桌面应用使用同一套界面。账号、额度及用量均为示例数据，不包含真实账号信息；点击图片可查看原图。
 
 ### 账号管理 · 多个身份，一处管理
 
@@ -67,89 +83,18 @@ npm start
 ```
 
 - 演示：`npm run demo`，使用独立演示数据，没有真实账号 IPC。
-- 构建安装包：`npm run dist`，输出到 `release/`。
-- 安装：构建后运行 `release/Codex Auth Manager Setup 0.4.0.exe`；更新时先退出旧版管理工具，再选择原安装目录。
+- Windows 构建：`npm run dist`，输出到 `release/`。
+- macOS 构建：在 Mac 上运行 `npm run dist:mac`，生成 arm64 / x64 的 DMG 与 ZIP。
+- 安装：构建后运行 `release/Codex Auth Manager Setup 0.4.1.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
 
 添加账号与查询官方额度需要本机 Codex CLI；开发机验证版本为 `codex-cli 0.154.0`。Windows 支持 Store / MSIX 安装；macOS 支持安装在 /Applications 或 ~/Applications 下的 Codex.app / ChatGPT.app。
 
-## 0.4.0 macOS 支持
+macOS 支持从 PATH、`/opt/homebrew/bin`、`/usr/local/bin`、`~/.local/bin` 查找 Codex CLI。Finder 启动的应用不会自动继承交互式 shell 配置；仅安装在 nvm 私有目录中的 CLI 需要加入应用可见的 PATH，或安装到上述可发现目录。
 
-- Apple Silicon / Intel 两种 DMG、ZIP 构建；管理工具最低支持 macOS 14。
-- 使用 macOS Keychain 加密账号凭据。Windows DPAPI 文件不能直接复制到 Mac，请使用加密导出 / 导入功能迁移。
-- 自动发现 /Applications 或 ~/Applications 中的 Codex / ChatGPT；先请求正常退出并检查主进程及 helper，再写凭据和重启。无法退出时可保存任务后明确确认结束后台。
-- 查找 PATH、/opt/homebrew/bin、/usr/local/bin、~/.local/bin 中的 Codex CLI；支持 Homebrew 原生程序和 npm 安装的原生二进制。Finder 启动不会继承交互式 shell 配置，仅装在 nvm 私有目录的 CLI 需要加入可见 PATH 或安装到上述目录。
-- 适配 macOS 红绿灯按钮、应用菜单、⌘Q、开机启动及菜单栏图标；关闭主窗口继续驻留，菜单栏菜单可恢复或完全退出。
-- 在 Mac 上运行 `npm run dist:mac` 构建两个架构。CI 在两个架构各自的 macOS runner 上测试并打包；没有真实用户在线切换验证时，不将模拟测试等同于在线身份验证。
-
-参考：[官方桌面应用文档](https://learn.chatgpt.com/docs/app)、[electron-builder v26 macOS 配置](https://www.electron.build/v26/docs/mac/)。
-
-## 0.3.9 主窗口关闭行为修复
-
-- 点击主窗口右上角关闭按钮后隐藏到系统托盘，无论悬浮窗是否开启，都保留后台运行。
-- 右键托盘图标选择「打开主窗口」可恢复界面；选择「退出」才完全退出管理工具。
-- 关闭主窗口不会自动打开或关闭悬浮窗。
-
-## 0.3.8 托盘驻留与账号切换修复
-
-- Codex 关闭主窗口后仍驻留托盘时，主界面与悬浮窗提供「已从托盘退出，重试」。
-- 保存任务后，也可选择「结束后台并切换」，再次确认才会强制结束 Codex 及后台任务；未保存内容可能丢失。
-- 默认不强制结束进程。只有确认退出后才保存当前凭据、替换账号并重启；退出检测失败仍中止切换。
-
-## 0.3.7 Windows 回调端口修复
-
-- 当 Windows 保留或占用官方登录回调端口、CLI 返回 10013 / 10048 时，自动改用设备码登录，不修改系统端口设置。
-- 自动打开官方设备码页面，并在管理工具中显示一次性验证码；按页面提示输入即可继续授权。若提示设备码登录未启用，请按官方页面说明在 ChatGPT 安全设置中启用后重试。
-- 已使用本机真实 CLI 获取设备码、调用系统浏览器，并由用户确认官方页面已打开；测试授权随后取消，未替换当前账号。
-- 28 项单元测试与设备码界面联动检查通过。
-
-## 0.3.6 添加账号浏览器修复
-
-- 收到完整官方授权链接后，由管理工具主动调用系统浏览器打开。
-- 分别按完整行解析 CLI 输出，避免链接被输出分段截断；重复输出不会触发管理工具重复打开。
-- 打开失败时保留登录会话并显示默认浏览器检查提示，可点击“重新打开浏览器”重试；取消或结束后禁用此按钮。
-- 27 项单元测试、源码与打包目录登录联动检查、实际 EXE 隔离检查通过；真人授权仍需实际环境验证。
-
-## 0.3.5 本地同步与隐藏查询修复
-
-- 查找 CLI 改为直接读取 PATH 和 npm 安装目录，不再启动 PowerShell 查找。
-- 登录与额度查询直接隐藏启动原生 codex.exe，绕过会再启动子进程的 npm / Node 包装脚本。
-- 支持独立 EXE、npm 平台依赖与 vendor 布局；缺少原生程序时报错，不回退到可能弹窗的包装脚本。
-- 默认仅从本地会话 JSONL、日志数据库与已有额度快照同步，关闭定时远程查询；本地变化通知、10 秒补查和跨窗口同步继续保留。
-- 悬浮窗刷新按钮也只读本地。只有主动点击主界面的「同步官方额度」「官方刷新」等明确按钮时，才隐藏调用 CLI 进行远程查询。
-- 本地没有新记录时显示待获取或保留旧快照及时间，不推算成官方实时额度；添加账号仍通过用户发起的官方浏览器授权完成。
-
-## 0.3.4 自动刷新修复
-
-- 本地会话 / 日志变化经过约 2.5 秒合并通知后同步刷新主界面与悬浮窗用量；可见窗口每 10 秒补查，显示或重新聚焦时也会刷新。
-- 当前已保存账号的官方额度每分钟补查一次，两个窗口共用请求；失败保留旧快照并等待下次重试。后台补查不锁定账号选择。
-- 官方手动刷新完成后通知两个窗口；较新的本地额度按记录时间覆盖旧官方窗口，修正本地恢复时间的秒 / 毫秒转换。
-- 手动刷新时额度和本机用量分别处理，网络失败不会阻止本机用量更新；保留待切换账号与搜索输入焦点。
-- 这不是服务端实时推送。显示速度仍取决于 Codex 写入日志、官方接口响应及本机读取耗时；非当前账号仍通过单账号或批量按钮刷新。
-
-## 0.3.3 标题栏与图标修复
-
-- 主窗口固定标题栏，只有下方内容滚动；为原生窗口按钮留出独立区域。切换页面回到顶部，账号刷新保持当前阅读位置。
-- 标题栏明暗颜色同步；悬浮窗 logo、工具栏与三项统计采用统一 SVG 图标。
-- 悬浮窗内容背景改为不透明，避免底层应用文字透出；调整双额度布局间距，底部不裁切。
-
-## 0.3.2 悬浮窗调整
-
-- Pro 关闭五小时展示时，周额度直接成为圆环主仪表，不再显示五小时占位或重复周额度卡片。
-- 账号选择改为自定义弹出列表，展示账号名称、套餐和当前使用状态；支持方向键、Enter、Esc。
-- 选择账号不会立即重启；确认目标账号后才切换。刷新保留待切换选择，当前账号的切换按钮禁用。
-- 独立切换按钮为 14px，底部状态为 12px，主界面入口为 13px；原生浮窗为 360 × 560。
-
-## 前版界面调整
-
-- 主界面正文与按钮 14px，辅助文字至少 12px；悬浮窗辅助文字至少 11px，提高明暗模式对比度。
-- 浅灰侧栏、白色卡片、系统蓝强调，替换旧版紫色渐变；原生浮窗调整为 360 × 560。
-- 应用设置新增「Pro 显示 5 小时额度」，Pro 5x / Pro 20x 默认关闭，主窗口、账号卡片、额度页、悬浮窗同步；Plus 等其他套餐不受影响。
-- 开关只影响展示；关闭不代表官方无限额度，仍显示周额度。
-
-## 本版功能
+## 主要功能
 
 - 官方浏览器登录：独立临时 CODEX_HOME，授权成功后加密保存，可取消和重新打开授权页。
 - 账号保存、重命名、搜索、筛选、删除；重复身份更新已有记录。
@@ -182,23 +127,40 @@ Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供
 - 本机统计中的缓存输入和推理输出属于子项，不能再次加进总量。
 - 断电、系统崩溃或第三方同时修改文件不具备完整事务恢复保证。
 - 未完成真实用户浏览器授权及实际 Codex 在线身份的端到端验收。曾报告的闪退未复现，不能断言所有崩溃原因已排除。
-- 安装包是未签名的本地预览版。
+- Windows 安装包未签名；macOS 仅 ad-hoc 签名，未做 Developer ID 签名与公证。
 
 ## 开发验证
 
 ```powershell
 npm run check
 npm test
-node_modules/.bin/electron.cmd scripts/smoke-electron.js
-node_modules/.bin/electron.cmd scripts/realtime-smoke.js
+npx electron scripts/smoke-electron.js
+npx electron scripts/realtime-smoke.js
+```
+
+Windows 打包验证：
+
+```sh
 npm run dist
 node scripts/packaged-smoke.js
 ```
+
+macOS 打包验证：
+
+```sh
+npm run dist:mac
+npx electron scripts/window-lifecycle-smoke.js --packaged
+node scripts/mac-packaged-smoke.js
+```
+
+GitHub Actions 在 Windows 运行语法和单元测试，在两种 macOS 架构运行单元、原生窗口、隔离账号及打包应用检查。完整检查入口见 [贡献说明](CONTRIBUTING.md)。
 
 浏览器演示预览使用 `scripts/preview-server.js`，通过环境变量 `CAM_PREVIEW_PORT` 选择端口；UI 验证脚本使用 4318。`scripts/ui-smoke.js` 使用独立演示数据。
 
 验证证据见 [VALIDATION](docs/VALIDATION.md)。参考版本见 [REFERENCE_REVIEW](docs/REFERENCE_REVIEW.md)。MIT 版权与借鉴范围见 [THIRD_PARTY](docs/THIRD_PARTY.md) 和 [LICENSE](LICENSE)。
 
 ## 参与开发与安全
+
+由 [SanjiFlip](https://github.com/SanjiFlip) 维护。使用问题或功能建议请通过 [Issues](https://github.com/SanjiFlip/codex-auth-manager/issues) 提交，附上版本、系统、复现步骤和脱敏截图。安全问题请按 [安全说明](SECURITY.md) 私密报告，不要公开凭据。
 
 请先阅读 [贡献说明](CONTRIBUTING.md) 和 [安全说明](SECURITY.md)。源码采用 MIT 许可，并保留上游版权。
