@@ -68,7 +68,8 @@ app.whenReady().then(async () => {
   await me('document.querySelector("#account-trigger").click()');await screenshot('meter-menu',meter);
   await me('document.querySelector("[data-id=c]").click();document.querySelector("#switch-btn").click();document.querySelector("#confirm-switch").click()');await sleep(200);
   assert.ok(await me('!document.querySelector("#weekly-section").hidden'));
-  assert.ok(await me('document.querySelector(".meter-content").scrollHeight<=document.querySelector(".meter-content").clientHeight'),'Plus meter should fit');
+  const layout=await me(`(()=>{const el=document.querySelector('.meter-content');return {viewport:innerHeight,content:el.clientHeight,scroll:el.scrollHeight,children:[...el.children].map(x=>({class:x.className,height:x.getBoundingClientRect().height}))}})()`);
+  assert.ok(layout.scroll<=layout.content,'Plus meter should fit: '+JSON.stringify(layout));
   await me('document.querySelector("#message").hidden=true;document.body.classList.add("dark")');await screenshot('meter-plus-dark',meter);
   assert.deepEqual(errors,[]);
   const report={checks:'8 pages at 1400x940 and 1000x820; Pro/Plus meter at 360x560; search, pagination, selection, focus retention, unchanged refresh',messageNodes:24,totalMessages:500,memoryCards:24,totalItems:250,sessionNodes:50,totalSessions:150,unchangedRefreshPreservesDOM:redraw};

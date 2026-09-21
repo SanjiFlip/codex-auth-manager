@@ -19,3 +19,10 @@ dialog{width:calc(100% - 44px);max-width:340px;border:1px solid var(--line);bord
 body{-webkit-font-smoothing:antialiased}.meter-brand>span{width:25px;height:25px}.hero{border-radius:16px}.hero-copy>strong{font-size:20px;font-weight:650;letter-spacing:-.4px}.hero-copy p{line-height:1.7}.ring-center strong{font-variant-numeric:tabular-nums}.ring-center small{font-size:12px}.weekly>div:first-child{font-size:13px}.mini-stats>div{padding:10px 7px;border-radius:12px}.mini-stats small{font-size:12px;line-height:1.4;white-space:normal}.mini-stats strong{font-size:22px;line-height:1.35;font-weight:650}.stat-icon{width:25px;height:25px;margin-bottom:6px}.stat-icon svg{width:17px;height:17px}.account-caption{font-size:12px;padding-bottom:7px}.selected-copy strong,.option-name{font-size:14px}.switch-button{height:36px;font-weight:550}.account-trigger{border-radius:11px}.account-menu{border-radius:14px;padding:6px;background:var(--panel)}.account-option{border:1px solid transparent}.account-option[aria-selected=true]{border-color:#0878ed40}.menu-heading{font-size:12px;padding:8px 10px 10px}.dark .blue,.dark .green,.dark .orange{background:var(--surface);color:var(--accent)}.week-only .hero{min-height:150px}.plan{font-size:10px;padding:3px 4px}.meter-content{gap:8px}.week-only .ring{width:110px;height:110px}.week-only .ring-center strong{font-size:31px}footer{margin-top:auto;min-height:24px}
 
 body{color-scheme:light}body.dark{color-scheme:dark}
+
+/* Keep dual quotas within the native 360 x 560 window across font metrics. */
+body{line-height:1.4}
+body:not(.week-only) .meter-content{padding-block:10px;gap:7px}
+body:not(.week-only) .weekly{padding-block:8px}
+body:not(.week-only) .mini-stats>div{padding-block:8px}
+body:not(.week-only) .account-caption{padding-bottom:5px}
