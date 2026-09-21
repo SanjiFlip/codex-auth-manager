@@ -22,7 +22,7 @@ npm test
 | 额度与本地刷新 | `npx electron scripts/realtime-smoke.js` |
 | 窗口关闭与恢复 | `npx electron scripts/window-lifecycle-smoke.js` |
 | Windows 安装包 | `npm run dist`，然后 `node scripts/packaged-smoke.js` |
-| macOS 安装包（在 Mac 上） | `npm run dist:mac`，然后 `npx electron scripts/window-lifecycle-smoke.js --packaged` 与 `node scripts/mac-packaged-smoke.js` |
+| macOS 安装包（在 Mac 上） | `npm run dist:mac`，然后 `npx electron scripts/window-lifecycle-smoke.js --packaged`、`npx electron scripts/knowledge-smoke.js --packaged` 与 `node scripts/mac-packaged-smoke.js` |
 
 集成脚本使用临时目录、合成凭据和必要的进程替身，不应改为使用个人账号。若环境设置了 `ELECTRON_RUN_AS_NODE`，运行 Electron 应用检查前应清除此变量。
 

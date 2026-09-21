@@ -186,3 +186,23 @@
 - 文件先解析真实路径并检查目录范围，再比较文件身份；真实归档或移除项目仍拒绝读取。不可用会话清除缓存并返回可处理的状态，界面移除对应条目、正文和已选消息，不展示内部 IPC 错误。重新读取列表及发送确认前也清理失效选择。
 - Windows 57 项测试通过，1 项 macOS 原生测试跳过；语法检查通过。实际 main / preload 与打包 ASAR 均验证扩展路径、先选消息后归档、自动移除与零错误提示；使用隔离合成数据，没有调用真实模型或更改真实凭据。
 - 59 个打包源码与资源文件和本次源码逐字节一致。本次重新生成的本地 Windows 安装包 SHA-256：`50d756e03150556af88bf3bb92dfd2bd85fefcf09565b0a3f34417ac5b1bf974`。未发布 GitHub Release，未构建新版 DMG。
+
+## v0.5.0 跨平台发布验收（2026-09-21）
+
+- 构建源码提交：`1c32a441f96c4cf532522c7302ac72fd2612f5b2`。后续发布提交只更新文档与演示图片，不改变应用源码或依赖。
+- [GitHub Actions 35611375983](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35611375983) 的 Windows、macOS arm64 与 x64 三项任务全部通过。Windows 57 项单元测试通过、1 项按平台跳过；两种 Mac 各 54 项通过、4 项按平台跳过。
+- 首轮 Mac 界面检查发现 Plus 双额度悬浮窗溢出；修正行高与垂直间距后，两种 Mac 的 8 页面、深浅主题、长列表及 360 × 560 悬浮窗检查通过，字号保留。
+- 两种 Mac 均完成 Keychain、原生窗口、隔离账号切换、蒸馏与记忆检查，生成 DMG / ZIP，并通过打包后窗口、知识流程与实际应用账号导入检查。真实浏览器登录和 Codex 在线身份不在本轮合成检查结论内。
+- Windows 安装包重新构建并通过实际 EXE 及打包知识流程检查。Windows ASAR 与本机源码一致；下载的两种 Mac ZIP 内各 59 个源码与资源文件和构建提交逐字节一致。
+- README 的 11 张图片均重新生成自 v0.5.0 隔离合成数据；版本、下载链接、更新日志、使用说明与安全维护版本同步更新。安装包仅放入 GitHub Releases，未加入 Git 源码。
+- 本版仍是预览版：Windows 未签名；Mac 为 ad-hoc 签名，未做 Developer ID 签名或公证。
+
+发布文件 SHA-256（与 Release 的 `SHA256SUMS-0.5.0.txt` 一致）：
+
+```text
+517293d8fa163a16896efa5858b515369041da4752e76a1e6b9f27819c6c8633  Codex-Auth-Manager-0.5.0-arm64.dmg
+d9a1f91e146af31d29ed2b2c506cb99190721901079fb75d4344a60873850d2a  Codex-Auth-Manager-0.5.0-arm64.zip
+5bcdc5460e3b63955e66d484d24652dff5f9166dd6070002cfec1818679c73bc  Codex-Auth-Manager-0.5.0-x64.dmg
+afc2838f6298d12f4aa902ca00d20bccd9f46995ffa7b9d5a27618c6d28f720c  Codex-Auth-Manager-0.5.0-x64.zip
+a6290b6e57f24673d8ef053b8492cdebf08287daaa47c1fe42617562f0b1333b  Codex-Auth-Manager-Setup-0.5.0-x64.exe
+```

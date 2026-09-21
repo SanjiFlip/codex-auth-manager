@@ -1,16 +1,16 @@
 # Codex Auth Manager
 
 [![构建检查](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)
-[![版本 v0.4.1](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.4.1)
+[![版本 v0.5.0](https://img.shields.io/badge/version-0.5.0-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.5.0)
 [![许可证 MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，重新设计浅灰玻璃与系统蓝主题与 Codex Meter 悬浮窗。
+Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，采用中性灰与系统蓝主题，提供 Codex Meter 悬浮窗、蒸馏工作台与本地记忆库。
 
-> 非 OpenAI 官方产品。当前 v0.4.1 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
+> 非 OpenAI 官方产品。当前 v0.5.0 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
-## 开发中的 v0.5.0 · 统一工作空间与知识管理
+## v0.5.0 · 统一工作空间与知识管理
 
-源码已加入独立实现的蒸馏与记忆功能，公开下载仍为下方 v0.4.1，尚不包含这些新功能。
+本版加入独立实现的蒸馏与记忆功能，Windows EXE 和两种 macOS 架构的 DMG / ZIP 均包含以下更新。
 
 - 选择本机 Codex 会话中的具体消息，通过本机当前登录的 Codex CLI 生成 Skill、工作流、提示词、个人偏好或任务记忆草稿。
 - 统一主窗口、全部功能页与悬浮窗的浅色 / 深色主题；账号卡片前置，Pro 周额度不再出现关闭的五小时占位。
@@ -28,47 +28,47 @@ Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/
 
 | 账号工作空间 | 桌面悬浮窗 |
 | --- | --- |
-| ![开发版账号工作空间](docs/images/preview-accounts.png) | ![开发版周额度悬浮窗](docs/images/preview-meter.png) |
+| ![账号工作空间](docs/images/preview-accounts.png) | ![周额度悬浮窗](docs/images/preview-meter.png) |
 
 ## 下载安装包
 
-当前版本：**v0.4.1 预览版**。请按操作系统和处理器选择安装包。
+当前版本：**v0.5.0 预览版**。请按操作系统和处理器选择安装包。
 
 | 平台 | 系统要求 | 安装包 |
 | --- | --- | --- |
-| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-Setup-0.4.1-x64.exe) |
-| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-0.4.1-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-0.4.1-arm64.zip) |
-| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-0.4.1-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/Codex-Auth-Manager-0.4.1-x64.zip) |
+| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.5.0/Codex-Auth-Manager-Setup-0.5.0-x64.exe) |
+| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.5.0/Codex-Auth-Manager-0.5.0-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.5.0/Codex-Auth-Manager-0.5.0-arm64.zip) |
+| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.5.0/Codex-Auth-Manager-0.5.0-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.5.0/Codex-Auth-Manager-0.5.0-x64.zip) |
 
-[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.4.1) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.4.1/SHA256SUMS-0.4.1.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
+[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.5.0) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.5.0/SHA256SUMS-0.5.0.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
 
 Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple Developer ID 签名和公证。Mac 下载后把应用拖到 Applications；若被 Gatekeeper 拦截，请在确认下载来源后使用系统「隐私与安全性」中的打开选项，不要关闭系统安全保护。
 
 更新前从托盘或 macOS 菜单栏完全退出旧版管理工具。Windows 运行安装程序并选择原安装目录；Mac 将新版应用替换到 Applications。跨设备迁移请使用加密导出 / 导入，不要直接复制账户库。
 
-## 最新更新 · v0.4.1
+## 最新更新 · v0.5.0
 
-修复周额度刷新后又跳回 100% 的问题：同周期的异常本地 0 值不再覆盖有效额度，不完整记录不会覆盖已知使用率；日志轮换后也保留已保存的有效快照。正常的新周期重置和更新的官方查询仍然生效。
+本版统一主界面与悬浮窗设计，加入蒸馏工作台与记忆库，并优化本地读取和长列表性能。蒸馏模型与推理强度从本机模型目录选择；仅加载启用项目的未归档 Codex 会话，显示项目名称，支持跨页全选。修复 Windows 扩展路径造成的归档误判，已归档聊天自动移除且不再弹出内部错误。
 
-Windows 与 macOS 两种架构的 [构建及检查均通过](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35599898366)。测试使用隔离账户库和合成凭据，不等于真实账号在线身份验收。详见 [更新日志](CHANGELOG.md) 和 [验证记录](docs/VALIDATION.md)。
+Windows 与 macOS 两种架构的 [构建及检查均通过](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35611375983)。Windows 另完成实际 EXE 检查，Mac 两种架构均完成打包后的蒸馏、窗口与账号导入检查。测试使用隔离账户库、合成凭据与模型返回，不等于真实账号在线身份验收。详见 [更新日志](CHANGELOG.md) 和 [验证记录](docs/VALIDATION.md)。
 
 ## 界面与功能预览
 
-以下截图来自 v0.3.5 的浏览器演示模式，Windows 与 macOS 桌面应用使用同一套界面。账号、额度及用量均为示例数据，不包含真实账号信息；点击图片可查看原图。
+以下截图来自 v0.5.0 的 Electron 隔离演示，Windows 与 macOS 桌面应用使用同一套界面。账号、额度及用量均为示例数据，不包含真实账号信息；点击图片可查看原图。
 
 ### 账号管理 · 多个身份，一处管理
 
 集中查看当前账号、Pro 20x / Pro 5x / Plus 套餐、本机今日用量和近 7 天趋势。支持添加账号、搜索筛选、保存当前账号，以及切换并重启 Codex。
 
-![账号管理主界面：当前账号、用量趋势、快捷工作台及多账号卡片](docs/images/accounts.png)
+![账号管理主界面：当前账号、用量指标与多账号卡片](docs/images/accounts.png)
 
 ### 桌面悬浮窗 · 额度与用量随时可见
 
 Pro 关闭五小时展示时以周额度为主仪表；Plus 展示五小时与每周两个额度窗口。悬浮窗支持本地刷新、置顶、明暗主题和账号选择，确认目标后再切换。
 
-| Pro 周额度模式 | Plus 双额度模式 | 深色主题与账号选择 |
+| Pro 周额度模式 | Plus 双额度深色模式 | 账号选择 |
 | --- | --- | --- |
-| ![Pro 悬浮窗：周额度圆环、重置次数、今日 Tokens 与会话](docs/images/meter-weekly.png) | ![Plus 悬浮窗：五小时圆环与每周额度进度](docs/images/meter-plus.png) | ![深色悬浮窗：包含套餐和当前账号标记的选择列表](docs/images/meter-picker.png) |
+| ![Pro 悬浮窗：周额度圆环、重置次数、今日 Tokens 与会话](docs/images/meter-weekly.png) | ![Plus 深色悬浮窗：五小时圆环与每周额度进度](docs/images/meter-plus.png) | ![悬浮窗：包含套餐和当前账号标记的选择列表](docs/images/meter-picker.png) |
 
 ### 用量概览 · 从总量看到明细
 
@@ -172,6 +172,7 @@ macOS 打包验证：
 ```sh
 npm run dist:mac
 npx electron scripts/window-lifecycle-smoke.js --packaged
+npx electron scripts/knowledge-smoke.js --packaged
 node scripts/mac-packaged-smoke.js
 ```
 

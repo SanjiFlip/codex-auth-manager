@@ -1,6 +1,6 @@
 # 安全说明
 
-当前维护版本为 **0.4.1 预览版**。请使用 [最新发布的修复版本](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.4.1)；旧版本不单独维护安全补丁。项目尚未完成独立安全审计。
+当前维护版本为 **0.5.0 预览版**。请使用 [最新发布的修复版本](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.5.0)；旧版本不单独维护安全补丁。项目尚未完成独立安全审计。
 
 ## 报告漏洞
 
