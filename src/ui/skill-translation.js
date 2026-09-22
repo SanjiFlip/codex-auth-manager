@@ -6,14 +6,18 @@ window.createSkillTranslation=({api,demo,toast,esc,onChange})=>{
   const content=text=>{const r=results.get(text);return r?`<p class="s-translated-text">${esc(r.text)}</p><small>${esc(r.providers.map(id=>names[id]).join(' / ')||(r.complete?'原文无需翻译':'暂不可用'))}${r.complete?' · 机器翻译':' · 部分失败，保留原文'}</small>`:'';};
   function controls(){return `<div class="s-translation-toolbar"><button class="btn" data-t-action="settings">${config.enabled?'中文翻译已开启':'翻译设置'}</button>${config.enabled?'<button class="btn" data-t-action="batch">翻译当前列表</button>':''}<button class="btn s-t-stop" data-t-action="stop" ${running?'':'hidden'}>停止翻译</button><span class="s-t-status" role="status">${running?'翻译中…':''}</span></div>`;}
   function card(text){return config.enabled?`<div class="s-translation-target" data-t-text="${esc(text)}"><div class="s-t-result">${content(text)}</div><button class="btn" data-t-action="one">${results.get(text)?.complete?'已翻译':results.has(text)?'重试翻译':'译成中文'}</button></div>`:'';}
-  function status(message=''){document.querySelectorAll('.s-t-status').forEach(el=>{el.textContent=message});document.querySelectorAll('.s-t-stop').forEach(el=>{el.hidden=!running});}
+  function status(message=''){document.querySelectorAll('.s-t-status').forEach(el=>{const owner=el.closest?.('.s-translation-detail,.s-translation-intro');el.textContent=!owner||owner===activeDetail?message:'';});document.querySelectorAll('.s-t-stop').forEach(el=>{const owner=el.closest?.('.s-translation-detail,.s-translation-intro');el.hidden=!running||!!owner&&owner!==activeDetail;});}
   function refresh(){for(const el of document.querySelectorAll('.s-translation-target')){el.querySelector('.s-t-result').innerHTML=content(el.dataset.tText);const result=results.get(el.dataset.tText),button=el.querySelector('[data-t-action=one]');button.textContent=result?.complete?'已翻译':result?'重试翻译':'译成中文';button.disabled=!!result?.complete;}}
   function stop(){stopped=true;if(requestId)api.skillsCancelTranslation({id:requestId}).catch(()=>{});status('正在停止…');}
   function showDetail(detail,result,phase='complete'){
     if(!detail?.isConnected)return;
-    detail.querySelector('.s-t-detail-result pre').textContent=result.text;const view=detail.querySelector('.s-t-detail-result');view.hidden=detail.dataset.tHidden==='true';const toggle=detail.querySelector('[data-t-original]');if(toggle)toggle.textContent=view.hidden?'显示译文':'隐藏译文';
     const source=result.providers.map(id=>names[id]).join(' / ')||(phase!=='complete'?'中文辅助阅读':result.complete?'原文无需翻译':'暂不可用');
-    detail.querySelector('.s-t-attribution').textContent=source+(phase==='stopped'?' · 翻译已停止，未完成段落保留原文':phase==='pending'?' · 正在翻译，未完成段落保留原文':result.complete?' · 机器翻译，仅供阅读':' · 部分失败，相应段落保留原文');
+    const attribution=source+(phase==='stopped'?' · 翻译已停止，未完成段落保留原文':phase==='pending'?' · 正在翻译，未完成段落保留原文':result.complete?' · 机器翻译，仅供阅读':' · 部分失败，相应段落保留原文');
+    if(detail.dataset.tKind==='intro'){
+      const view=detail.querySelector('.s-t-intro-result');view.hidden=false;view.innerHTML=`<p class="s-translated-text">${esc(result.text)}</p><small class="s-t-attribution">${esc(attribution)}</small>`;return;
+    }
+    detail.querySelector('.s-t-detail-result pre').textContent=result.text;const view=detail.querySelector('.s-t-detail-result');view.hidden=detail.dataset.tHidden==='true';const toggle=detail.querySelector('[data-t-original]');if(toggle)toggle.textContent=view.hidden?'显示译文':'隐藏译文';
+    detail.querySelector('.s-t-attribution').textContent=attribution;
   }
   function settings(){
     const el=document.createElement('dialog');el.className='s-dialog';el.id='skill-translation-settings';
@@ -34,7 +38,7 @@ window.createSkillTranslation=({api,demo,toast,esc,onChange})=>{
         showDetail(detail,result);
         if(!result.complete&&!result.providers.length)break;
       }}catch(e){if(!stopped)toast(String(e.message||e).replace(/^Error invoking remote method '[^']+': (?:Error: )?/,''));}
-    finally{unsubscribe?.();if(stopped&&lastProgress)showDetail(detail,lastProgress,'stopped');running=false;requestId=null;activeDetail=null;status(stopped?'已停止':partial?'服务暂不可用，未翻译部分保留原文':completed?`已翻译 ${completed} 项`:'');}
+    finally{unsubscribe?.();if(stopped&&lastProgress)showDetail(detail,lastProgress,'stopped');running=false;requestId=null;status(stopped?'已停止':partial?'服务暂不可用，未翻译部分保留原文':completed?`已翻译 ${completed} 项`:'');activeDetail=null;}
   }
   function handle(event,root){const button=event.target.closest('[data-t-action]');if(!button)return false;const action=button.dataset.tAction;
     if(action==='settings')settings();if(action==='stop')stop();
@@ -42,9 +46,17 @@ window.createSkillTranslation=({api,demo,toast,esc,onChange})=>{
     if(action==='batch'){const texts=[...new Set([...root.querySelectorAll('.s-translation-target')].map(el=>el.dataset.tText))].filter(text=>!results.get(text)?.complete);if(texts.length)void run(texts);else toast('当前列表已翻译。');}
     return true;
   }
+  function attachIntro(el,text){
+    if(!config.enabled||typeof text!=='string'||!text.trim())return;
+    const anchor=el.querySelector('.s-dialog-intro');if(!anchor)return;
+    const tools=document.createElement('div');tools.className='s-translation-intro';tools.dataset.tKind='intro';
+    tools.innerHTML='<div class="s-translation-toolbar"><button class="btn" data-t-intro>翻译简介</button><button class="btn s-t-stop" data-t-action="stop" hidden>停止翻译</button><span class="s-t-status" role="status"></span></div><div class="s-t-intro-result" hidden></div>';
+    anchor.after(tools);tools.onclick=e=>{if(e.target.closest('[data-t-intro]'))void run([text],tools);else handle(e,tools);};
+    el.addEventListener('close',()=>{if(running&&activeDetail===tools)stop()},{once:true});
+  }
   function attachDetail(el,text){
     const tools=document.createElement('div');tools.className='s-translation-detail';tools.innerHTML=`<div class="s-translation-toolbar"><button class="btn" data-t-detail>翻译正文</button><button class="btn" data-t-original>隐藏译文</button><button class="btn s-t-stop" data-t-action="stop" hidden>停止翻译</button><span class="s-t-status" role="status"></span></div><p class="help-text">原文保留在上方。仅翻译当前正文，代码块、行内代码和链接保留；单次最多 60000 字符。</p><div class="s-t-detail-result" hidden><small class="s-t-attribution"></small><div class="s-preview"><pre></pre></div></div>`;
     el.querySelector('.s-preview').after(tools);tools.onclick=e=>{if(e.target.closest('[data-t-detail]')){delete tools.dataset.tHidden;void run([text],tools);}else if(e.target.closest('[data-t-original]')){const view=tools.querySelector('.s-t-detail-result');view.hidden=!view.hidden;tools.dataset.tHidden=String(view.hidden);e.target.closest('[data-t-original]').textContent=view.hidden?'显示译文':'隐藏译文';}else handle(e,tools);};el.addEventListener('close',()=>{if(running&&activeDetail===tools)stop()},{once:true});
   }
-  return {controls,card,handle,attachDetail};
+  return {controls,card,handle,attachIntro,attachDetail};
 };

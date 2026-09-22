@@ -10,17 +10,32 @@ function fixture(providers=['suapi']){
   const api={skillsTranslate:input=>{inputs.push(input);let promise=translator.translate(input);if(holdNextDelivery){holdNextDelivery=false;promise=promise.then(value=>new Promise(resolve=>deliveries.push(()=>resolve(value))));}jobs.push(promise);return promise;},skillsCancelTranslation:input=>{cancelled.push(input.id);return Promise.resolve(translator.cancel(input));},onSkillsTranslationProgress:handler=>{subscribers.add(handler);handlers.push(handler);return ()=>subscribers.delete(handler);}};
   const document={body:{append:el=>settingsDialog=el},querySelectorAll:selector=>selector==='.s-t-status'?[status]:selector==='.s-t-stop'?[stop]:selector==='.s-translation-target'?targets:[],createElement:tag=>{
     if(tag==='dialog'){const el={...JSON.parse(saved),showModal(){},close(){this.onclose?.();},remove(){},querySelectorAll:()=>el.providers.map(value=>({value})),querySelector:()=>({checked:el.enabled})};return el;}
-    const result={hidden:true},pre={},attribution={};return {isConnected:true,dataset:{},querySelector:selector=>selector==='.s-t-detail-result'?result:selector==='.s-t-detail-result pre'?pre:selector==='.s-t-attribution'?attribution:null};}};
+    const result={hidden:true},intro={hidden:true,innerHTML:''},pre={},attribution={};return {isConnected:true,dataset:{},querySelector:selector=>selector==='.s-t-intro-result'?intro:selector==='.s-t-detail-result'?result:selector==='.s-t-detail-result pre'?pre:selector==='.s-t-attribution'?attribution:null};}};
   const context={window:{},document,crypto,localStorage:{getItem:()=>saved,setItem:(_key,value)=>saved=value}};vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/ui/skill-translation.js'),'utf8'),context);
-  const ui=context.window.createSkillTranslation({api,demo:false,toast:value=>messages.push(value),esc:String,onChange:()=>{}});
+  const ui=context.window.createSkillTranslation({api,demo:false,toast:value=>messages.push(value),esc:value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'),onChange:()=>{}});
   function detail(text){let tools,close;const dialog={querySelector:()=>({after:value=>tools=value}),addEventListener:(_name,fn)=>close=fn};ui.attachDetail(dialog,text);return {start:()=>tools.onclick({target:{closest:selector=>selector==='[data-t-detail]'?{}:null}}),toggle:()=>tools.onclick({target:{closest:selector=>selector==='[data-t-original]'?{}:null}}),close:()=>{tools.isConnected=false;close();},get tools(){return tools;}};}
+  function intro(text){let tools,close;const dialog={querySelector:()=>({after:value=>tools=value}),addEventListener:(_name,fn)=>close=fn};ui.attachIntro(dialog,text);return {start:()=>tools.onclick({target:{closest:selector=>selector==='[data-t-intro]'?{}:null}}),close:()=>{tools.isConnected=false;close();},get tools(){return tools;}};}
   const batch=()=>ui.handle({target:{closest:()=>({dataset:{tAction:'batch'}})}},{querySelectorAll:()=>targets});
   const cancel=()=>ui.handle({target:{closest:()=>({dataset:{tAction:'stop'}})}},{});
   const progress=(index=0,changes={})=>({id:inputs[index].id,text:'首段中文\nRemaining original',completedSegments:1,totalSegments:2,failedSegments:0,cachedSegments:0,providers:['suapi'],complete:false,...changes});
   const emit=value=>{for(const handler of subscribers)handler(value);};
   function settings(providers,enabled=true){ui.handle({target:{closest:()=>({dataset:{tAction:'settings'}})}},{});settingsDialog.providers=providers;settingsDialog.enabled=enabled;settingsDialog.onclick({target:{closest:selector=>selector==='[data-t-save]'?{}:null}});}
-  return {requests,jobs,inputs,cancelled,messages,status,targets,detail,batch,cancel,subscribers,handlers,progress,emit,settings,deliveries,holdDelivery:()=>holdNextDelivery=true};
+  return {requests,jobs,inputs,cancelled,messages,status,targets,detail,intro,batch,cancel,subscribers,handlers,progress,emit,settings,deliveries,holdDelivery:()=>holdNextDelivery=true};
 }
+
+test('introduction translation sends only its description, escapes progress and reuses explicit complete cache',async()=>{
+  const f=fixture(),intro=f.intro('Read the skill introduction.');assert.equal(f.inputs.length,0);intro.start();await tick();assert.equal(f.inputs[0].text,'Read the skill introduction.');
+  f.emit(f.progress(0,{text:'<img src=x onerror=alert(1)>'}));const view=intro.tools.querySelector('.s-t-intro-result');assert.equal(view.hidden,false);assert.ok(view.innerHTML.includes('&lt;img'));assert.ok(!view.innerHTML.includes('<img'));
+  f.requests[0].finish();await f.jobs[0];await tick();assert.match(view.innerHTML,/中文译文/);assert.equal(f.subscribers.size,0);
+  const reopened=f.intro('Read the skill introduction.');assert.equal(reopened.tools.querySelector('.s-t-intro-result').hidden,true);reopened.start();await tick();assert.equal(f.inputs.length,1);assert.match(reopened.tools.querySelector('.s-t-intro-result').innerHTML,/中文译文/);
+});
+
+test('introduction controls honor disabled and empty states; closing an intro only cancels its own task',async()=>{
+  const f=fixture();assert.equal(f.intro(' ').tools,undefined);f.settings(['suapi'],false);assert.equal(f.intro('Private description').tools,undefined);assert.equal(f.inputs.length,0);f.settings(['suapi'],true);
+  const old=f.intro('Old introduction');old.start();await tick();f.requests[0].finish();await f.jobs[0];await tick();
+  const body=f.detail('Current body');body.start();await tick();old.close();assert.equal(f.requests[1].signal.aborted,false);f.requests[1].finish();await f.jobs[1];await tick();
+  const current=f.intro('Current introduction');current.start();await tick();current.close();await assert.rejects(f.jobs[2],/取消/);await tick();assert.equal(f.cancelled.length,1);assert.equal(f.subscribers.size,0);
+});
 
 test('a delayed close event from an untranslated detail cannot cancel a newer list translation',async()=>{
   const f=fixture(),oldDetail=f.detail('Old detail body');
