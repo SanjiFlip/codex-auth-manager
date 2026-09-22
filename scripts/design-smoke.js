@@ -7,6 +7,7 @@ app.setPath('userData', temp); app.commandLine.appendSwitch('force-device-scale-
 let win, meter; const errors = [];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const evaluate = async js => {try{return await win.webContents.executeJavaScript(js)}catch(e){console.error('Expression:',js);throw e}};
+async function until(expression,label){for(let i=0;i<160;i++){if(await evaluate(expression))return;await sleep(50)}throw Error('Timeout: '+label)}
 const click = selector => evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
 const screenshot = async (name, target = win) => { target.showInactive(); await sleep(220); fs.writeFileSync(path.join(root, name+'.png'), (await target.webContents.capturePage()).toPNG()); };
 setTimeout(() => { console.error('DESIGN FAIL timeout'); app.exit(1); }, 45000);
@@ -47,9 +48,9 @@ app.whenReady().then(async () => {
   await click('.k-project-toggle');assert.equal(await evaluate('document.querySelectorAll(".k-session").length'),0);
   await click('.k-project-toggle');assert.equal(await evaluate('document.querySelectorAll(".k-session").length'),25,'expanded range survives collapse');
   assert.equal(await evaluate('window.transcriptReads||0'),0,'project expansion must not read message bodies');
-  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='项目会话 149';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await sleep(180);
+  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='项目会话 149';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await until('document.querySelectorAll(".k-project-toggle").length===1&&document.querySelector(".k-session")?.textContent.trim()==="项目会话 149"','session search');
   assert.equal(await evaluate('document.querySelectorAll(".k-project-toggle").length'),1);assert.equal(await evaluate('document.querySelector(".k-session").textContent.trim()'),'项目会话 149');
-  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await sleep(180);
+  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await until('document.querySelectorAll(".k-project-toggle").length===2','session search cleared');
   assert.equal(await evaluate('document.querySelectorAll(".k-project-toggle").length'),2);
   assert.equal(await evaluate('document.querySelectorAll(".k-session small").length'),0,'no repeated timestamp or selection detail');
   await click('.k-session');await sleep(50);
@@ -78,20 +79,22 @@ app.whenReady().then(async () => {
   await click('[data-session-check="s0"]');assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 99 条');
   assert.ok(await evaluate('document.querySelector("[data-project-check]").indeterminate'));
   await click('[data-session-check="s0"]');await sleep(60);assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 100 条');
-  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='项目会话 149';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await sleep(180);
+  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='项目会话 149';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await until('document.querySelectorAll(".k-project-toggle").length===1&&document.querySelector(".k-session")?.textContent.trim()==="项目会话 149"','session search');
   await click('[data-project-check="id:project-b"]');await sleep(150);assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 150 条','project selection includes filtered-out sessions');
   await click('[data-project-check="id:project-b"]');assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 100 条');
   await evaluate('window.designUnavailable=true');await click('[data-project-check="id:project-b"]');await sleep(60);assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 100 条','unavailable selection must be atomic');
   await evaluate('window.designUnavailable=false;window.designHold=true');await click('[data-project-check="id:project-b"]');await sleep(60);await click('[data-kact="cancel-selection"]');await evaluate('window.designHold=false;window.designRelease()');await sleep(60);assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 100 条','cancel leaves original selection');
-  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await sleep(180);
+  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await until('document.querySelectorAll(".k-project-toggle").length===2','session search cleared');
   await evaluate('document.querySelector("#toast").classList.remove("show")');
   await screenshot('distill-large');
   await click('[data-page="memory"]');await evaluate(`window.designUI.render('memory',document.querySelector('#content'))`);
   assert.equal(await evaluate('document.querySelectorAll(".k-card").length'),24);
-  await evaluate(`const q=document.querySelector('#k-query');q.value='条目 249';q.dispatchEvent(new Event('input',{bubbles:true}))`);await sleep(180);
+  await evaluate(`window.designSetTimeout=window.setTimeout;window.setTimeout=(fn,ms,...args)=>window.designSetTimeout(fn,ms===120?500:ms,...args);void 0`);
+  await evaluate(`const q=document.querySelector('#k-query');q.value='条目 249';q.dispatchEvent(new Event('input',{bubbles:true}))`);await until('document.querySelectorAll(".k-card").length===1&&document.querySelector(".k-card").textContent.includes("249")','memory search');
   assert.equal(await evaluate('document.querySelectorAll(".k-card").length'),1);
-  await evaluate(`{const q=document.querySelector('#k-query');q.value='no match';q.dispatchEvent(new Event('input',{bubbles:true}))}`);await sleep(180);await click('[data-kact="reset-filters"]');
+  await evaluate(`{const q=document.querySelector('#k-query');q.value='no match';q.dispatchEvent(new Event('input',{bubbles:true}))}`);await until('document.querySelectorAll(".k-card").length===0','empty memory search');await click('[data-kact="reset-filters"]');
   assert.equal(await evaluate('document.querySelectorAll(".k-card").length'),24);
+  await evaluate('window.setTimeout=window.designSetTimeout;void 0');
   await screenshot('memory-large');
   win.setSize(1000,820);await evaluate('document.body.classList.add("dark")');
   for(const page of ['accounts','usage','quotas','distill','skills','memory','activity','diagnostics','settings']){
