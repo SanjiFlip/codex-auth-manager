@@ -280,3 +280,5 @@ a6290b6e57f24673d8ef053b8492cdebf08287daaa47c1fe42617562f0b1333b  Codex-Auth-Man
 - 两种 Mac 均通过原生窗口、Keychain、知识 / Skills 含 Token / 断点恢复 / 设计检查、DMG 与 ZIP 构建和实际打包应用检查；没有使用真实账号或模型请求。
 - Windows `npm test` 为 89 项：88 通过、1 项 Mac 专用检查跳过。最终 EXE 的 Skills Token、额度默认零值回跳及两进程断点继续验证通过；71 个源码 / 资源 / 许可证文件与 ASAR 一致。
 - 本地发布 EXE SHA-256：`1387de183e77cacc3c718263ba33a9cf06762451e8349b6b66d8111113f92aad`。全部平台发布文件、来源构建和摘要见 [v0.6.0 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.0) 的校验文件。
+
+- 文档提交后的一次 Intel CI 在商店 UI 检查中超时。用 500 毫秒首请求延迟稳定复现，确认是测试固定等待 100 毫秒后点击仍禁用的按钮；改为等待目录加载完成。相同延迟下源码和打包 Skills 流程均通过。此修复只改测试脚本，不改发布应用源码或安装包。

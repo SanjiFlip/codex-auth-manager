@@ -13,8 +13,9 @@ process.env.CODEX_HOME=home;process.env.CAM_DATA_ROOT=path.join(temp,'vault');ap
 const fixture=require('./fixtures/skills-repository').createRepositoryFixture();
 const packet=text=>(Buffer.byteLength(text)+4).toString(16).padStart(4,'0')+text;
 const baseFetcher=process.argv.includes('--limited')?async url=>{if(url.startsWith('https://api.github.com/'))return new Response('{}',{status:403,headers:{'x-ratelimit-remaining':'0','x-ratelimit-reset':String(Math.floor(Date.now()/1000)+600)}});if(url.includes('/info/refs'))return new Response(packet(fixture.commit+' HEAD\n')+'0000');if(url.startsWith('https://codeload.github.com/'))return new Response(fs.readFileSync(path.join(__dirname,'fixtures/skills-repository.zip')));return fixture.fetcher(url)}:fixture.fetcher;
-let authenticatedRequests=0;
-const fetcher=async(url,options)=>{if(options?.headers?.Authorization){assert.ok(url.startsWith('https://api.github.com/'));authenticatedRequests++;if(url==='https://api.github.com/repos/sample/skills')return new Response('{"private":false}');return fixture.fetcher(url)}return baseFetcher(url,options)};
+// Deliberately slow the first catalog read to exercise loading-state waits.
+let authenticatedRequests=0,firstCatalogRequest=true;
+const fetcher=async(url,options)=>{if(firstCatalogRequest){firstCatalogRequest=false;await new Promise(resolve=>setTimeout(resolve,500))}if(options?.headers?.Authorization){assert.ok(url.startsWith('https://api.github.com/'));authenticatedRequests++;if(url==='https://api.github.com/repos/sample/skills')return new Response('{"private":false}');return fixture.fetcher(url)}return baseFetcher(url,options)};
 const modulePath=path.join(source,'skills/manager'),factory=require(modulePath).createSkillsManager;
 require(modulePath).createSkillsManager=options=>factory({...options,userHome,bank,fetcher,writeConfig:async(h,changes)=>{const config=await require(path.join(source,'skills/config')).readConfig(h);config.skills={config:await require(path.join(source,'skills/config')).patchEntries(config.skills?.config||[],changes)};await fsp.writeFile(path.join(h,'config.toml'),TOML.stringify(config));}});
 require(path.join(source,'main'));
@@ -28,7 +29,7 @@ setTimeout(()=>{console.error('SKILLS FAIL timeout');app.exit(1)},50000);
 (async()=>{
   await until(()=>{win=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('manager.html'));return win&&!win.webContents.isLoading()},'startup');win.setSize(1440,1020);win.webContents.setBackgroundThrottling(false);
   await click('[data-page=skills]');await until(()=>evaluate('document.querySelectorAll(".s-card").length===1'),'existing skill');
-  await click('[data-sact=store]');await sleep(100);await click('.s-custom-source summary');await input('#s-repo','sample/skills');await click('[data-sact=custom-source]');await until(()=>evaluate('document.querySelectorAll(".s-store-grid .s-card").length===2'),'market');
+  await click('[data-sact=store]');await until(()=>evaluate('document.querySelector("[data-sact=custom-source]")?.disabled===false'),'initial catalog settled');await click('.s-custom-source summary');await input('#s-repo','sample/skills');await click('[data-sact=custom-source]');await until(()=>evaluate('document.querySelectorAll(".s-store-grid .s-card").length===2'),'market');
   await click('[data-sact=save-current-source]');await input('[name=source-name]','我的科研技能');await click('[data-submit=save-source]');await until(()=>evaluate('!document.querySelector("#skills-dialog")&&document.querySelectorAll(".s-store-grid .s-card").length===2'),'source saved');
   assert.ok(await evaluate('document.querySelector(".s-sources").textContent.includes("我的科研技能")'));
   await click('[data-sact=edit-source]');await input('[name=source-name]','自定义科研来源');await click('[data-submit=save-source]');await until(()=>evaluate('!document.querySelector("#skills-dialog")&&document.querySelector(".s-store-heading").textContent.includes("自定义科研来源")'),'source edited');
