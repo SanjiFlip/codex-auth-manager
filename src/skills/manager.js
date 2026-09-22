@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const {inventory,key,normalize,atomic,readJson}=require('./files');
-const {readConfig,enabledFor,writeSkillConfig}=require('./config');
+const {readConfig,createSkillMatcher,writeSkillConfig}=require('./config');
 const {createMarketplace,repository,reference}=require('./github');
 function createSkillsManager({root,home,userHome,bank=path.join(userHome,'.skillshub'),writeConfig=writeSkillConfig,fetcher,encrypt,decrypt,translationFetcher}){
   const file=path.join(root,'library.json'),codexSkills=path.join(home,'skills'),agentSkills=path.join(userHome,'.agents','skills');
@@ -12,8 +12,8 @@ function createSkillsManager({root,home,userHome,bank=path.join(userHome,'.skill
   async function state(){const value=await readJson(file,initial());if(value.version!==1||!Array.isArray(value.groups)||!Array.isArray(value.installed))throw Error('Skills 分组文件格式无效。');if(value.customSources===undefined)value.customSources=[];if(!Array.isArray(value.customSources))throw Error('Skills 来源文件格式无效，原数据已保留。');return value;}
   async function save(value){value.revision++;await atomic(file,JSON.stringify(value,null,2));}
   function exclusive(fn){const task=queue.then(fn);queue=task.catch(()=>{});return task;}
-  async function scan(){const s=await state(),found=await inventory([bank,codexSkills,agentSkills]),config=await readConfig(home),entries=config.skills?.config||[];
-    for(const item of found.items){const source=s.installed.find(i=>i.id===item.id);item.source=source?.source||null;item.managed=!!source;item.linked=item.aliases.some(f=>normalize(path.dirname(path.dirname(f)))!==normalize(bank));item.enabled=item.linked&&await enabledFor(item,entries);item.groupIds=s.groups.filter(g=>g.skillIds.includes(item.id)).map(g=>g.id);}
+  async function scan(){const s=await state(),found=await inventory([bank,codexSkills,agentSkills]),config=await readConfig(home),enabledForItem=await createSkillMatcher(config.skills?.config||[]);
+    for(const item of found.items){const source=s.installed.find(i=>i.id===item.id);item.source=source?.source||null;item.managed=!!source;item.linked=item.aliases.some(f=>normalize(path.dirname(path.dirname(f)))!==normalize(bank));item.enabled=item.linked&&enabledForItem(item);item.groupIds=s.groups.filter(g=>g.skillIds.includes(item.id)).map(g=>g.id);}
     return {...s,githubToken:await tokens.status(),items:found.items,warnings:found.warnings,bank,home,sources:[...market.sources.map(source=>({...source,id:'builtin:'+source.repo,ref:'HEAD',custom:false})),...s.customSources.map(source=>({...source,custom:true}))]};
   }
   function revision(s,value){if(s.revision!==value)throw Error('Skills 列表已变化，请刷新后重试。');}

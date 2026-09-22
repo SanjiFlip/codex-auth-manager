@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld("codexAuth", {
   refreshOfficial: id => ipcRenderer.invoke('account:refresh-official', id),
   refreshLocalData: () => ipcRenderer.invoke('data:refresh-local'),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
+  openUpdate: target => ipcRenderer.invoke('updates:open', target),
+  exportStatistics: () => ipcRenderer.invoke('statistics:export'),
   getState: () => ipcRenderer.invoke("state:get"),
   importCurrent: (displayName) => ipcRenderer.invoke("account:import-current", displayName),
   exportPortable: (password) => ipcRenderer.invoke("account:export-portable", password),

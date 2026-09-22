@@ -6,7 +6,12 @@ const {resolveCli}=require('../official-login'),{stopChild}=require('../child-pr
 const {normalize}=require('./files');
 async function readConfig(home){try{return TOML.parse(await fs.readFile(path.join(home,'config.toml'),'utf8'))}catch(e){if(e.code==='ENOENT')return {};throw Error('Codex 配置无法解析，未修改任何设置。')}}
 async function selectorPath(value){if(typeof value!=='string')return '';try{return normalize(await fs.realpath(value))}catch{return normalize(value)}}
-async function enabledFor(item,entries){let enabled=true;for(const rule of entries){if(rule.name===item.name||rule.path&&await selectorPath(rule.path)===normalize(item.file))enabled=rule.enabled!==false;}return enabled;}
+async function createSkillMatcher(entries){
+  const paths=new Map();
+  const rules=await Promise.all(entries.map(async rule=>{if(rule.path&&!paths.has(rule.path))paths.set(rule.path,selectorPath(rule.path));return {name:rule.name,path:rule.path?await paths.get(rule.path):null,enabled:rule.enabled!==false};}));
+  return item=>{let enabled=true;const file=normalize(item.file);for(const rule of rules)if(rule.name===item.name||rule.path===file)enabled=rule.enabled;return enabled;};
+}
+async function enabledFor(item,entries){return (await createSkillMatcher(entries))(item);}
 async function patchEntries(entries,changes){const paths=new Set(changes.map(c=>normalize(c.path))),result=[];for(const entry of entries)if(!entry.path||!paths.has(await selectorPath(entry.path)))result.push(entry);return [...result,...changes];}
 // Use Codex's versioned TOML editor, preserving unrelated settings and comments.
 async function withConfigServer(home,action,{resolve=resolveCli,spawnProcess=spawn}={}){
@@ -39,4 +44,4 @@ async function writeSkillConfig(home,changes,options={}){
     return {before,after};
   },options);
 }
-module.exports={readConfig,enabledFor,patchEntries,writeSkillConfig,withConfigServer};
+module.exports={readConfig,enabledFor,createSkillMatcher,patchEntries,writeSkillConfig,withConfigServer};

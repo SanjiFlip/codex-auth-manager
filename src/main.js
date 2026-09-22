@@ -20,6 +20,10 @@ const path = require("node:path");
 const readline = require("node:readline");
 const { spawn } = require("node:child_process");
 const { fileCredentialStoreConfig, resolveCodexHome } = require("./codex-config");
+const {createUpdateChecker}=require('./github-updates');
+const {usageCsv}=require('./usage-export');
+const {dayKey}=require('./ui/statistics');
+let updateChecker;
 const {
   QUOTA_CONFLICT_WINDOW_MS,
   QUOTA_ESTIMATE_ALGORITHM,
@@ -4498,10 +4502,32 @@ function handleWidgetPointerLeave() {
   return { ok: true };
 }
 
+function recentStatistics(){
+  const since=new Date();since.setHours(0,0,0,0);since.setDate(since.getDate()-6);
+  if(!statisticsInFlight)statisticsInFlight=readLocalUsage({since:since.toISOString()}).finally(()=>{statisticsInFlight=null});
+  return statisticsInFlight;
+}
+
 function registerIpc() {
+  updateChecker=createUpdateChecker({currentVersion:app.getVersion()});
   const knowledgeHandle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('不允许从此窗口访问知识库。');
     return handler(...args);
+  });
+  knowledgeHandle('updates:check',()=>updateChecker.check());
+  knowledgeHandle('updates:open',async target=>{
+    if(!['release','installer'].includes(target))throw Error('无效的更新操作。');
+    const result=await updateChecker.check();
+    if(target==='installer'&&(!result.installer||result.comparison<=0))throw Error('没有适合当前平台的新版本安装包。');
+    await shell.openExternal(target==='installer'?result.installer.url:result.releaseUrl);
+    return true;
+  });
+  knowledgeHandle('statistics:export',async()=>{
+    const result=await dialog.showSaveDialog(mainWindow,{title:'导出本机近 7 天用量',defaultPath:`codex-usage-${dayKey(new Date())}.csv`,filters:[{name:'CSV 表格',extensions:['csv']}]});
+    if(result.canceled||!result.filePath)return false;
+    const usage=await recentStatistics();
+    await fs.writeFile(result.filePath,usageCsv(usage),{encoding:'utf8',mode:0o600});
+    return true;
   });
   for(const method of ['list','catalog','preview','install','saveGroup','removeGroup','saveSource','removeSource','saveToken','removeToken','plan','apply','detail','translate','cancelTranslation'])knowledgeHandle('skills:'+method,input=>skillsManager[method](input));
   knowledgeHandle('knowledge:models',()=>readModelCatalog(codexDir()));
@@ -4532,13 +4558,7 @@ function registerIpc() {
     if(isWindows&&win===mainWindow&&!win.isDestroyed())win.setTitleBarOverlay({color:dark===true?'#1c1c1e':'#f5f5f7',symbolColor:dark===true?'#aeaeb6':'#6e6e73',height:38});
     return {ok:true};
   });
-  ipcMain.handle('statistics:get', async () => {
-    const since=new Date();since.setHours(0,0,0,0);since.setDate(since.getDate()-6);
-    if(!statisticsInFlight){
-      statisticsInFlight=readLocalUsage({since:since.toISOString()}).finally(()=>{statisticsInFlight=null});
-    }
-    return statisticsInFlight;
-  });
+  ipcMain.handle('statistics:get', recentStatistics);
   ipcMain.handle('account:refresh-official', (_event,id) => refreshOfficialAccount(id));
   ipcMain.handle('data:refresh-local', () => refreshLocalData());
   ipcMain.handle('login:start', (_event, name) => {

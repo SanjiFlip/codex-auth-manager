@@ -84,9 +84,37 @@ function bucketsFromRecord(payload) {
   return raw && typeof raw === "object" ? [raw] : [];
 }
 
+function emptyTokenAvailability() {
+  return Object.fromEntries(Object.keys(emptyTokenUsage()).map((key) => [key, true]));
+}
+
+function tokenAvailabilityFromRaw(raw) {
+  const valid = (value) => (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) &&
+    Number.isFinite(Number(value)) && Number(value) >= 0;
+  // Follow normalization's field precedence, without mistaking its zero defaults
+  // for observations. A total is derived only when both components are known.
+  const input = raw?.input_tokens ?? raw?.inputTokens;
+  const cached = raw?.cached_input_tokens ?? raw?.cachedInputTokens ?? raw?.input_tokens_details?.cached_tokens;
+  const inputTokens = valid(input);
+  const outputTokens = valid(raw?.output_tokens ?? raw?.outputTokens);
+  const total = raw?.total_tokens ?? raw?.totalTokens;
+  return {
+    inputTokens,
+    cachedInputTokens: inputTokens && valid(cached) && Number(cached) <= Number(input),
+    outputTokens,
+    reasoningOutputTokens: valid(raw?.reasoning_output_tokens ?? raw?.reasoningOutputTokens ?? raw?.output_tokens_details?.reasoning_tokens),
+    totalTokens: total == null ? inputTokens && outputTokens : valid(total),
+  };
+}
+
+function intersectTokenAvailability(total, availability) {
+  for (const key of Object.keys(total)) total[key] = total[key] && availability?.[key] === true;
+  return total;
+}
+
 async function parseRecordFile(file) {
   const result = { id:null, cwd:null, startedAt:null, model:null, segments:[], events:[], resets:[], invalidLines:0, counterResets:0, missingBaselines:0 };
-  let previous = null, model = null, tier = null, turnId = null, inherited = false;
+  let previous = null, previousAvailability = null, model = null, tier = null, turnId = null, inherited = false;
   const source = fs.createReadStream(file.path);
   let input = source;
   if (file.path.endsWith(".gz")) input = source.pipe(zlib.createGunzip());
@@ -123,9 +151,11 @@ async function parseRecordFile(file) {
       if (!Number.isFinite(ms)) continue;
       const rawUsage = p.info?.total_token_usage ?? p.info?.totalTokenUsage;
       const usage = rawUsage ? normalizeTokenUsage(rawUsage) : null;
+      const availability = usage ? tokenAvailabilityFromRaw(rawUsage) : null;
       const eventModel = p.model ?? model;
       const eventTier = p.service_tier ?? p.serviceTier ?? tier ?? "unknown";
       let delta = null;
+      let deltaAvailability = null;
       let boundary = false;
       if (usage) {
         if (previous) {
@@ -133,13 +163,22 @@ async function parseRecordFile(file) {
             result.counterResets++;
             // A compaction/reset is not evidence that the new cumulative counter
             // is newly billed usage. Rebase; report this unmeasurable interval.
-          } else delta = subtractTokenUsage(usage, previous);
-        } else if (!inherited) { delta = usage; boundary = true; }
+          } else {
+            delta = subtractTokenUsage(usage, previous);
+            deltaAvailability = intersectTokenAvailability({ ...availability }, previousAvailability);
+            // The numeric path clamps individual counter decreases to zero.
+            // That zero is not a measured delta even if the total still rises.
+            for (const key of Object.keys(deltaAvailability)) {
+              if (usage[key] < previous[key]) deltaAvailability[key] = false;
+            }
+          }
+        } else if (!inherited) { delta = usage; deltaAvailability = availability; boundary = true; }
         else result.missingBaselines++;
         previous = usage;
+        previousAvailability = availability;
       }
       const eventKey = crypto.createHash("sha256").update(JSON.stringify([timestamp, turnId, usage])).digest("hex");
-      if (delta && tokenUsageTotal(delta) > 0) result.segments.push({ timestamp, ms, model:eventModel, serviceTier:eventTier, tokenUsage:delta, key:eventKey, first:boundary, startedAt:result.startedAt });
+      if (delta && tokenUsageTotal(delta) > 0) result.segments.push({ timestamp, ms, model:eventModel, serviceTier:eventTier, tokenUsage:delta, tokenAvailability:deltaAvailability, key:eventKey, first:boundary, startedAt:result.startedAt });
       const rates = bucketsFromRecord(p);
       for(const raw of rates) {
         const reset=normalizeResetCredits(raw.rateLimitResetCredits??raw.rate_limit_reset_credits,timestamp);
@@ -170,6 +209,7 @@ function createRecordCache() {
 function aggregateUsage(records, options = {}) {
   const since = options.since ? Date.parse(options.since) : null;
   const total = emptyTokenUsage(), seen = new Set(), sessions = new Map(), models = new Map(), days = new Map(), projects = new Map();
+  const tokenAvailability = emptyTokenAvailability();
   let duplicates = 0, boundaryIntervals = 0;
   const entries = records.flatMap((r) => r.segments.map((s) => ({r,s}))).sort((a,b) => a.s.ms-b.s.ms);
   for (const {r,s} of entries) {
@@ -177,17 +217,18 @@ function aggregateUsage(records, options = {}) {
     if (Number.isFinite(since) && s.first && !(Date.parse(s.startedAt) >= since)) { boundaryIntervals++; continue; }
     if (seen.has(s.key)) { duplicates++; continue; } seen.add(s.key);
     addTokenUsage(total, s.tokenUsage);
+    intersectTokenAvailability(tokenAvailability, s.tokenAvailability);
     const day = new Date(s.ms); const dayKey = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,"0")}-${String(day.getDate()).padStart(2,"0")}`;
     for (const [map,key,extra] of [[models,s.model??"unknown",{model:s.model??"unknown"}], [days,dayKey,{day:dayKey}], [projects,r.cwd??"unknown",{project:r.cwd?path.basename(r.cwd):"未知项目",cwd:r.cwd}]]) {
-      if (!map.has(key)) map.set(key,{...extra,tokenUsage:emptyTokenUsage(),ids:new Set()});
-      const item=map.get(key); addTokenUsage(item.tokenUsage,s.tokenUsage); item.ids.add(r.id);
+      if (!map.has(key)) map.set(key,{...extra,tokenUsage:emptyTokenUsage(),tokenAvailability:emptyTokenAvailability(),ids:new Set()});
+      const item=map.get(key); addTokenUsage(item.tokenUsage,s.tokenUsage); intersectTokenAvailability(item.tokenAvailability,s.tokenAvailability); item.ids.add(r.id);
     }
-    if (!sessions.has(r.id)) sessions.set(r.id,{id:r.id,cwd:r.cwd,title:options.indexMap?.get(r.id)?.thread_name??(r.cwd?path.basename(r.cwd):"会话"),tokenUsage:emptyTokenUsage()});
-    const session=sessions.get(r.id); addTokenUsage(session.tokenUsage,s.tokenUsage);session.updatedAt=s.timestamp;session.model=s.model;
+    if (!sessions.has(r.id)) sessions.set(r.id,{id:r.id,cwd:r.cwd,title:options.indexMap?.get(r.id)?.thread_name??(r.cwd?path.basename(r.cwd):"会话"),tokenUsage:emptyTokenUsage(),tokenAvailability:emptyTokenAvailability()});
+    const session=sessions.get(r.id); addTokenUsage(session.tokenUsage,s.tokenUsage);intersectTokenAvailability(session.tokenAvailability,s.tokenAvailability);session.updatedAt=s.timestamp;session.model=s.model;
   }
   const values=(map)=>[...map.values()].map(({ids,...v})=>({...v,sessions:ids.size}));
   return { source:"local", checkedAt:new Date().toISOString(), since:options.since??null,
-    tokenUsage:total, sessionsAnalyzed:sessions.size,
+    tokenUsage:total, tokenAvailability, sessionsAnalyzed:sessions.size,
     models:values(models).sort((a,b)=>b.tokenUsage.totalTokens-a.tokenUsage.totalTokens),
     daily:values(days).sort((a,b)=>a.day.localeCompare(b.day)).slice(-7),
     projects:values(projects).sort((a,b)=>b.tokenUsage.totalTokens-a.tokenUsage.totalTokens).slice(0,10),

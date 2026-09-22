@@ -17,6 +17,8 @@ npm test
 | 修改范围 | 检查方式 |
 | --- | --- |
 | 界面 | `npm run demo`；检查主窗口与悬浮窗、明暗主题、长账号名称 |
+| 更新检查 / 用量导出 | `npx electron scripts/settings-smoke.js`；打包后加 `--packaged` |
+| 大项目素材选择 | `npx electron scripts/knowledge-performance-smoke.js`（合成素材与操作计数） |
 | 账号切换、IPC、凭据存储 | `npx electron scripts/smoke-electron.js` |
 | 蒸馏、记忆和知识库 | `npx electron scripts/knowledge-smoke.js` |
 | Skills、场景分组与来源 | `npx electron scripts/skills-smoke.js --limited`；打包后加 `--packaged` |
@@ -31,6 +33,8 @@ npm test
 [GitHub Actions](.github/workflows/ci.yml) 在 Windows 运行静态检查和单元测试，在 macOS arm64 / x64 运行单元、原生窗口、隔离账号、构建与打包应用检查。这些检查不代表完成真实用户浏览器授权或 Codex 在线身份验收。继承的 `scripts/validate-*.js` 不是当前全量验收入口。
 
 ## 提交与文档
+
+main 上仅修改 README、更新日志、使用说明、验收记录或截图时不重复构建安装包；PR 仍执行完整检查。应用源码、测试、工作流、依赖及打包许可文档 `docs/THIRD_PARTY.md` 的修改始终触发构建。
 
 - 保持改动聚焦，新增测试应覆盖实际行为与失败边界。
 - 功能或行为变更更新 [README](README.md)、[更新日志](CHANGELOG.md) 和相关文档；验证结果记录到 [VALIDATION](docs/VALIDATION.md)。
