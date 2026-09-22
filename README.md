@@ -72,7 +72,7 @@ Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple
 
 ## 最新更新 · v0.6.1
 
-本版新增 Skills 技能库、场景分组与商店，支持自定义来源和分组全选。蒸馏支持整项目勾选、大项目分批、多阶段整合与断点继续；修复本机会话漏项、GitHub 商店限流及额度刷新后回跳 100%。详见 [更新日志](CHANGELOG.md)。
+本版新增可选中文翻译：无需 Key，支持服务轮换、失败切换和原文保留；默认关闭，手动翻译时向所选第三方发送文本。修复私有仓库读取、大型技能目录加载及加载中无法移除来源，技能文件最多 4 路并发下载。详见 [更新日志](CHANGELOG.md) 和 [翻译使用说明](docs/SKILLS.md#可选中文翻译)。
 
 Windows 与 macOS 两种架构的 [构建及检查均通过](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35611375983)。Windows 另完成实际 EXE 检查，Mac 两种架构均完成打包后的蒸馏、窗口与账号导入检查。测试使用隔离账户库、合成凭据与模型返回，不等于真实账号在线身份验收。详见 [更新日志](CHANGELOG.md) 和 [验证记录](docs/VALIDATION.md)。
 

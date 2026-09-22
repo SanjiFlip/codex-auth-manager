@@ -300,3 +300,10 @@ a6290b6e57f24673d8ef053b8492cdebf08287daaa47c1fe42617562f0b1333b  Codex-Auth-Man
 - 安装性能合成对比：32 个文件、每次下载人为延迟 25 毫秒，旧版串行 1002 ms，新版最多 4 并发 253 ms；仅证明该夹具下的并发收益，不代表真实网络提速比例。
 
 - 打包后的翻译 IPC、默认关闭、手动开启 / 关闭、备用服务接管、本地 / 市场 / 正文译文与原文保留均通过；主界面 9 页和悬浮窗设计回归通过。新增翻译后的 macOS 构建结果将在发布前补充。
+
+### v0.6.1 最终构建与发布核对
+
+- [GitHub Actions 35688504382](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35688504382) 的 Windows check、macOS 14 arm64、macOS 15 Intel x64 全部成功，构建提交为 `6c3005cbfccef4e927da1c82359ab686c094509d`，标签为 `v0.6.1`。
+- 两种 Mac 均完成源码测试、窗口 / 账号 / 知识 / Skills / 断点恢复 / 设计检查、DMG 与 ZIP 构建，以及打包应用检查。账户与模型请求使用隔离夹具，不据此声明真实账户切换或模型输出质量已验收。
+- Windows 和两种 Mac 的最终 ASAR 各 74 个源码、资源与许可证文件逐一匹配构建源码；package.json 的版本、入口和运行依赖一致。Mac 比较基准为 Git 提交中的 LF 文件，Windows 为本地构建文件。
+- Windows EXE SHA-256：`c5e3650310c36ac139c11e671513c3c864f78bf079f6aea663fedf31372bd154`。5 个安装 / 压缩文件的完整摘要收录于 `SHA256SUMS-0.6.1.txt`，与安装包一起提供；源码仓库不包含安装包和用户凭据。
