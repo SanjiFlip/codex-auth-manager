@@ -6,7 +6,7 @@
 
 Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，采用中性灰与系统蓝主题，提供 Codex Meter 悬浮窗、蒸馏工作台与本地记忆库。
 
-> 非 OpenAI 官方产品。当前分支为 v0.6.4 预览版（待发布）；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
+> 非 OpenAI 官方产品。当前 v0.6.4 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
 ## v0.6.4 · 技能简介独立翻译
 
@@ -76,7 +76,7 @@ Windows EXE 和两种 macOS 架构的 DMG / ZIP 提供一致的工作空间与�
 
 ## 下载安装包
 
-准备发布：**v0.6.4 预览版**。下列为发布后使用的下载地址，实际可用产物以 [Releases](https://github.com/SanjiFlip/codex-auth-manager/releases) 为准；请按操作系统和处理器选择安装包。
+当前版本：**v0.6.4 预览版**。请按操作系统和处理器选择安装包。
 
 | 平台 | 系统要求 | 安装包 |
 | --- | --- | --- |
@@ -90,7 +90,7 @@ Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple
 
 更新前从托盘或 macOS 菜单栏完全退出旧版管理工具。Windows 运行安装程序并选择原安装目录；Mac 将新版应用替换到 Applications。跨设备迁移请使用加密导出 / 导入，不要直接复制账户库。
 
-## 最新更新 · v0.6.4（待发布）
+## 最新更新 · v0.6.4
 
 本版在技能详情与商店预览中增加独立的「翻译简介」入口，只翻译当前简介，正文仍按需单独翻译。此前的服务队列、渐进显示、缓存、手动更新检查和用量 CSV 导出继续保留。详见 [更新日志](CHANGELOG.md) 和 [翻译使用说明](docs/SKILLS.md#可选中文翻译)。
 

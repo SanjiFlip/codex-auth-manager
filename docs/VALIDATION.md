@@ -366,3 +366,14 @@ a6290b6e57f24673d8ef053b8492cdebf08287daaa47c1fe42617562f0b1333b  Codex-Auth-Man
 - Windows 语法检查通过；152 项测试中 151 通过、1 项 Mac 专用跳过。17 项翻译界面测试和独立复核通过。
 - 真实 Electron 源码检查覆盖本地及两项市场简介仅发送原始 description、正文未提交或修改、零额外 GitHub 请求，以及两个入口关闭翻译后的状态。测试还修正了两处旧假设：正文署名选择器限定到正文区，初始目录等待真实加载结束，避免把延迟目录请求误认为简介触发。
 - 新增简介翻译截图使用隔离合成内容，未发送真实技能文本、改动用户技能配置或覆盖已安装应用。构建和发布结果在最终记录中补充。
+- 简介与正文的进度、结束状态和停止按钮按当前任务独立显示，修正简介完成后正文也显示「已翻译」的问题；源码及 ASAR 的 Electron 检查均断言未翻译正文的状态为空。
+- Windows v0.6.4 安装包的 Skills 检查通过，包含两种简介入口、开关、独立状态、正文渐进显示、缓存复用及取消归属；实际 EXE 启动、隔离库、IPC / DPAPI、悬浮窗及额度防回跳检查通过。75 个源码 / 资源 / 许可证文件与 ASAR 逐字节一致，package.json 运行字段一致。
+- Windows 发布 EXE SHA-256：`e01fa4c64b5392e159de7fd99930d3323161e6fc1fc8966413ad641023cd74ff`。
+
+### v0.6.4 最终构建核对
+
+- [GitHub Actions 35709191080](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35709191080) 全部成功：Windows check、macOS 14 arm64、macOS 15 Intel x64。构建源码为 `b94dd820ec5088ab96a2447d6113511c429550cd`。
+- 三个平台各执行 152 项测试：Windows 151 通过 / 1 项平台跳过，两种 Mac 各 148 通过 / 4 项平台跳过，均无失败。两种 Mac 的源码及 ASAR 均通过简介翻译检查，并完成设置、窗口、知识、恢复及原生 Keychain / Meter 检查。
+- 原有翻译性能夹具在三个 CI 平台继续通过：25 段正文含 20 段唯一文本，共 20 个请求，峰值 2 个请求，完整缓存再次点击新增 0 个请求；此为合成网络测试，不代表免费服务的线上速度。
+- 两种 Mac 的最终 ASAR 各 75 个源码、资源与许可证文件逐字节匹配构建 Git 提交，package.json 运行字段一致；Windows 对照本地构建文件也一致。DMG / ZIP 来自上述同一次 CI；标签 `v0.6.4` 指向已测试构建提交。
+- [v0.6.4 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.4) 已公开发布为预览版，包含 Windows EXE、arm64 / x64 DMG 与 ZIP，以及 `SHA256SUMS-0.6.4.txt`。6 个资产的 GitHub SHA-256 摘要及大小均匹配本地文件，匿名下载 HEAD 全部返回 200。
