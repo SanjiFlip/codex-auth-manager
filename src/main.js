@@ -4529,7 +4529,15 @@ function registerIpc() {
     await fs.writeFile(result.filePath,usageCsv(usage),{encoding:'utf8',mode:0o600});
     return true;
   });
-  for(const method of ['list','catalog','preview','install','saveGroup','removeGroup','saveSource','removeSource','saveToken','removeToken','plan','apply','detail','translate','cancelTranslation'])knowledgeHandle('skills:'+method,input=>skillsManager[method](input));
+  for(const method of ['list','catalog','preview','install','saveGroup','removeGroup','saveSource','removeSource','saveToken','removeToken','plan','apply','detail','cancelTranslation'])knowledgeHandle('skills:'+method,input=>skillsManager[method](input));
+  ipcMain.handle('skills:translate',(event,input)=>{
+    const sender=event.sender,frame=event.senderFrame;
+    if(sender!==mainWindow?.webContents||frame!==sender.mainFrame)throw Error('不允许从此窗口访问技能翻译。');
+    return skillsManager.translate(input,progress=>{
+      if(sender.isDestroyed()||sender!==mainWindow?.webContents||frame!==sender.mainFrame)return;
+      sender.send('skills:translation-progress',progress);
+    });
+  });
   knowledgeHandle('knowledge:models',()=>readModelCatalog(codexDir()));
   knowledgeHandle('knowledge:list',()=>knowledgeStore.list());
   knowledgeHandle('knowledge:save',input=>knowledgeStore.save(input));

@@ -22,6 +22,7 @@ npm test
 | 账号切换、IPC、凭据存储 | `npx electron scripts/smoke-electron.js` |
 | 蒸馏、记忆和知识库 | `npx electron scripts/knowledge-smoke.js` |
 | Skills、场景分组与来源 | `npx electron scripts/skills-smoke.js --limited`；打包后加 `--packaged` |
+| Skills 翻译调度与性能 | `node scripts/translation-performance-smoke.js`（固定延迟合成响应，不访问翻译服务）；界面流程同时运行 Skills 隔离检查 |
 | 蒸馏断点恢复 | `node scripts/resume-smoke.js`；打包后加 `--packaged` |
 | 额度与本地刷新 | `npx electron scripts/realtime-smoke.js` |
 | 窗口关闭与恢复 | `npx electron scripts/window-lifecycle-smoke.js` |
@@ -29,6 +30,8 @@ npm test
 | macOS 安装包（在 Mac 上） | `npm run dist:mac`，然后 `npx electron scripts/window-lifecycle-smoke.js --packaged`、`npx electron scripts/knowledge-smoke.js --packaged` 与 `node scripts/mac-packaged-smoke.js` |
 
 集成脚本使用临时目录、合成凭据和必要的进程替身，不应改为使用个人账号。若环境设置了 `ELECTRON_RUN_AS_NODE`，运行 Electron 应用检查前应清除此变量。
+
+翻译回归需保留每服务单请求、跨任务排队、节流与取消边界，并验证正文渐进显示、完整缓存需主动点击、部分失败重试和已有服务选择的保留。合成性能夹具的 40 ms 间隔仅用于快速测试，生产默认间隔为 650 ms；不要把合成耗时写成真实网络保证。新增公共翻译服务应记录公开文档、无 Key 请求方式和已知限制；如需联网探测，只发送普通合成短句并设置超时，不使用用户技能或凭据。
 
 [GitHub Actions](.github/workflows/ci.yml) 在 Windows 运行静态检查和单元测试，在 macOS arm64 / x64 运行单元、原生窗口、隔离账号、构建与打包应用检查。这些检查不代表完成真实用户浏览器授权或 Codex 在线身份验收。继承的 `scripts/validate-*.js` 不是当前全量验收入口。
 

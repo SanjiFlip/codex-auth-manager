@@ -31,6 +31,8 @@ jobs:
       - run: npm run check
       - run: npm test
 
+      - run: node scripts/translation-performance-smoke.js
+
   mac:
     strategy:
       fail-fast: false
@@ -58,6 +60,7 @@ jobs:
       - run: npx electron scripts/skills-smoke.js
       - run: npx electron scripts/settings-smoke.js
       - run: npx electron scripts/knowledge-performance-smoke.js
+      - run: node scripts/translation-performance-smoke.js
       - run: npx electron scripts/design-smoke.js
       - run: npx electron-builder --mac dmg zip --${{ matrix.arch }} --publish never
       - run: npx electron scripts/window-lifecycle-smoke.js --packaged
