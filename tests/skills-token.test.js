@@ -28,10 +28,39 @@ test('authenticated API refresh bypasses anonymous cooldown; token never reaches
   for(const name of await fs.readdir(root))if(name.endsWith('.json'))assert.ok(!(await fs.readFile(path.join(root,name),'utf8')).includes(secret));
   token=null;const stale=await market.catalog({repo:'sample/skills',force:true});assert.equal(stale.stale,true);assert.match(stale.warning,/限流/);
 });
-test('invalid token gives an actionable error, and authenticated private repositories are rejected',async t=>{
+test('invalid token gives an actionable error',async t=>{
   const root=await temporary(t),secret=crypto.randomBytes(24).toString('hex');let calls=0;
   const market=createMarketplace({root,getToken:async()=>secret,fetcher:async()=>{calls++;return new Response('{}',{status:401})}});
   await assert.rejects(market.catalog({repo:'sample/skills'}),error=>error.message.includes('Token 无效')&&!error.message.includes(secret));assert.equal(calls,1);
-  const privateMarket=createMarketplace({root,getToken:async()=>secret,fetcher:async()=>new Response('{"private":true}')});
-  await assert.rejects(privateMarket.catalog({repo:'sample/private'}),/仅支持公开/);
+});
+
+test('nested private skills browse and install through authenticated blobs without persistent catalog or cross-token access',async t=>{
+  const root=await temporary(t),fixture=createRepositoryFixture(),secret=crypto.randomBytes(24).toString('hex');let token=secret;
+  const requests=[];
+  const fetcher=async(url,options)=>{
+    requests.push(url);assert.equal(options.headers.Authorization,'Bearer '+secret);
+    assert.ok(url.startsWith('https://api.github.com/'),'private reads must stay on API');
+    if(url==='https://api.github.com/repos/sample/private')return new Response('{"private":true}');
+    if(url.includes('/git/blobs/')){const sha=url.split('/').at(-1),text=Object.values(fixture.files).find(text=>crypto.createHash('sha1').update(Buffer.from(`blob ${Buffer.byteLength(text)}\0`)).update(text).digest('hex')===sha);return new Response(JSON.stringify({encoding:'base64',content:Buffer.from(text).toString('base64')}));}
+    return fixture.fetcher(url);
+  };
+  const market=createMarketplace({root,fetcher,getToken:async()=>token});
+  const cat=await market.catalog({repo:'sample/private'});assert.equal(cat.items.length,2);assert.equal(cat.private,true);
+  const p=await market.preview({repo:'sample/private',id:cat.items[0].id});
+  assert.match(p.body,/daily-notes/);await market.install(p.token,path.join(root,'bank'));
+  assert.ok(!(await fs.readdir(root)).some(name=>name.startsWith('catalog-')));
+  const again=await market.preview({repo:'sample/private',id:cat.items[1].id});token=null;
+  await assert.rejects(market.install(again.token,path.join(root,'bank')),/Token.*变化/);
+  await assert.rejects(market.catalog({repo:'sample/private'}));
+});
+
+test('revoked private access never returns cached metadata or falls back to public hosts',async t=>{
+  const root=await temporary(t),fixture=createRepositoryFixture();let revoked=false;
+  const market=createMarketplace({root,getToken:async()=>'synthetic',fetcher:async url=>{
+    assert.ok(url.startsWith('https://api.github.com/'));
+    if(revoked)return new Response('{}',{status:403});
+    if(url==='https://api.github.com/repos/sample/private')return new Response('{"private":true}');return fixture.fetcher(url);
+  }});
+  await market.catalog({repo:'sample/private'});revoked=true;
+  await assert.rejects(market.catalog({repo:'sample/private',force:true}),/403/);
 });

@@ -16,7 +16,7 @@ async function zipTree(buffer,commit,prefix){
   try{return await new Promise((resolve,reject)=>{
     zip.on('error',reject);zip.on('end',()=>resolve(files));
     zip.on('entry',entry=>{(async()=>{
-      if(++entries>50000)throw Error('仓库压缩包条目过多。');expanded+=entry.uncompressedSize;if(expanded>256*1024*1024)throw Error('仓库解压体积超过 256 MB 保护上限。');
+      if(++entries>50000)throw Object.assign(Error('仓库压缩包条目过多。'),{code:'ARCHIVE_LIMIT'});expanded+=entry.uncompressedSize;if(expanded>256*1024*1024)throw Object.assign(Error('仓库解压体积超过 256 MB 保护上限。'),{code:'ARCHIVE_LIMIT'});
       const parts=entry.fileName.split('/'),base=parts.shift();if(!root)root=base;if(base!==root||!base.endsWith('-'+commit))throw Error('仓库快照目录与固定提交不一致。');
       const name=parts.join('/');if(!name||entry.fileName.endsWith('/')){zip.readEntry();return;}safeRelative(name);
       const mode=entry.externalFileAttributes>>>16,type=mode&0o170000;
