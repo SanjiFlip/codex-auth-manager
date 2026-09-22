@@ -4,37 +4,48 @@ const { createInterface } = require('node:readline');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {activeSessions,normalized}=require('./projects');
-const MAX_BYTES = 32 * 1024 * 1024;
+const BODY_WINDOW_BYTES = 8 * 1024 * 1024;
 const hash = text => crypto.createHash('sha256').update(text).digest('hex');
 const signature = stat => `${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}:${stat.ino}`;
 
 // Renderer paths are never accepted. Containment is checked even for cache hits.
 function createSessionLibrary(home) {
   const refs = new Map(), transcripts = new Map(), pending = new Map();
-  let snapshot, expiresAt = 0, listing, retainedChars = 0;
+  let snapshot, expiresAt = 0, listing, retainedChars = 0, fallbackFiles;
   async function checked(file) {
     const root = await fs.realpath(path.join(home, 'sessions'));
     const actual = await fs.realpath(file), rel = path.relative(root, actual);
     if (rel.startsWith('..') || path.isAbsolute(rel)) throw Error('会话不在允许的目录中。');
     const stat = await fs.stat(actual);
-    if (!stat.isFile() || stat.size > MAX_BYTES) throw Error('会话文件超过 32 MB，请使用较小的会话。');
+    if (!stat.isFile()) throw Error('会话正文不是有效文件。');
     return { actual, stat };
   }
-  async function scan() {
-    const scope=await activeSessions(home), items=[], nextRefs=new Map();let skipped=0;
-    for (const meta of scope.items) {
-      if (items.length >= 300) break;
-      try {
-        const {actual:file,stat}=await checked(meta.file),id=hash(file);
-        if (nextRefs.has(id)) continue;
-        nextRefs.set(id,{file,sessionId:meta.sessionId});
-        items.push({id,title:meta.title,project:meta.project,projectId:meta.projectId,sessionId:meta.sessionId,updatedAt:new Date(stat.mtimeMs).toISOString()});
-      } catch { skipped++; }
+  async function localFiles(){
+    const files=[];
+    async function walk(dir){let entries;try{entries=await fs.readdir(dir,{withFileTypes:true})}catch(e){if(e.code==='ENOENT')return;throw e;}
+      for(const entry of entries){if(entry.name.startsWith('.'))continue;const full=path.join(dir,entry.name);if(entry.isDirectory())await walk(full);else if(entry.isFile()&&entry.name.endsWith('.jsonl'))files.push(full);}
     }
-    refs.clear(); for (const [id,ref] of nextRefs) refs.set(id,ref);
-    snapshot={items,skipped,limited:scope.items.length>300,projectCount:scope.projectCount};
-    expiresAt=Date.now()+15000;
-    return snapshot;
+    await walk(path.join(home,'sessions'));return files;
+  }
+  async function resolveFile(meta){
+    if(meta.file)try{return await checked(meta.file)}catch{}
+    // Only locate filenames for a thread already admitted by the archive/project index.
+    // This never opens unknown or archived conversation bodies.
+    if(!fallbackFiles)fallbackFiles=await localFiles();
+    const matches=fallbackFiles.filter(file=>path.basename(file)===meta.sessionId+'.jsonl'||path.basename(file).endsWith('-'+meta.sessionId+'.jsonl'));
+    if(matches.length===1)try{return await checked(matches[0])}catch{}
+    throw Object.assign(Error('此会话在本机缺少可读取的正文，请确认原文件或重新读取。'),{code:'SESSION_NOT_LOCAL'});
+  }
+  async function scan() {
+    const scope=await activeSessions(home),items=[],nextRefs=new Map();let missing=0;fallbackFiles=null;
+    for(const meta of scope.items){
+      const id=hash(meta.sessionId);let resolved;
+      try{resolved=await resolveFile(meta)}catch{missing++;}
+      nextRefs.set(id,{file:resolved?.actual||null,sessionId:meta.sessionId});
+      items.push({id,title:meta.title,project:meta.project,projectId:meta.projectId,sessionId:meta.sessionId,readStatus:resolved?'ready':'not-local',updatedAt:new Date(meta.updatedAt||resolved?.stat.mtimeMs||0).toISOString()});
+    }
+    refs.clear();for(const [id,ref] of nextRefs)refs.set(id,ref);
+    snapshot={items,skipped:0,missing,limited:false,projectCount:scope.projectCount};expiresAt=Date.now()+15000;return snapshot;
   }
   async function list({ force = false } = {}) {
     if (listing) return listing;
@@ -42,15 +53,18 @@ function createSessionLibrary(home) {
     listing = scan();
     try { return await listing; } finally { listing = null; }
   }
-  async function parse(file) {
+  async function parse(file,size) {
+    const start=Math.max(0,size-BODY_WINDOW_BYTES);let skipPartial=start>0;
+    if(size===0)return {messages:[],limited:false,invalidLines:0,windowed:false,readBytes:0};
     const response = [], legacy = []; let responseCount = 0, legacyCount = 0, invalidLines = 0;
     function message(role, text, index) {
       return { role, index, text: text.slice(0, 20000), fingerprint: hash(role + '\n' + text), truncated: text.length > 20000 };
     }
-    const stream = createReadStream(file, { encoding: 'utf8' });
+    const stream = createReadStream(file, { encoding: 'utf8',start,end:size-1 });
     const lines = createInterface({ input: stream, crlfDelay: Infinity });
     try {
       for await (const line of lines) {
+        if(skipPartial){skipPartial=false;continue;}
         let e;
         try { e = JSON.parse(line); } catch { if (line.trim()) invalidLines++; continue; }
         if (!e || typeof e !== 'object') continue;
@@ -63,7 +77,7 @@ function createSessionLibrary(home) {
         }
       }
     } finally { lines.close(); stream.destroy(); }
-    return { messages: (responseCount ? response : legacy).sort((a, b) => a.index - b.index), limited: (responseCount || legacyCount) > 500, invalidLines };
+    return { messages: (responseCount ? response : legacy).sort((a, b) => a.index - b.index), limited: start>0||(responseCount || legacyCount)>500,windowed:start>0,readBytes:size-start,invalidLines };
   }
   function unavailable(id) {
     retainedChars -= transcripts.get(id)?.chars || 0;
@@ -74,11 +88,8 @@ function createSessionLibrary(home) {
     const ref=refs.get(id);if(!ref)throw unavailable(id);
     const scope=await activeSessions(home,ref.sessionId),allowed=scope.items.find(s=>s.sessionId===ref.sessionId);
     if(!allowed)throw unavailable(id);
-    const file=allowed.file;
-    let checkedFile;
-    try { checkedFile=await checked(file); } catch(error) { if(error.code==='ENOENT')throw unavailable(id);throw error; }
-    const {actual,stat}=checkedFile;
-    if(normalized(actual)!==normalized(ref.file))throw unavailable(id);
+    const {actual,stat}=await resolveFile(allowed);
+    const file=actual;
     const key=signature(stat);
     const hit = transcripts.get(id);
     if (hit?.key === key && hit.file === actual) {
@@ -87,9 +98,10 @@ function createSessionLibrary(home) {
     const pendingKey = `${actual}:${key}`;
     if (pending.has(pendingKey)) return pending.get(pendingKey);
     const work = (async () => {
-      const value = await parse(actual);
+      const value = await parse(actual,stat.size);
       const latest=await activeSessions(home,ref.sessionId);
-      if(!latest.items.some(s=>s.sessionId===ref.sessionId&&normalized(s.file)===normalized(file)))throw unavailable(id);
+      const latestMeta=latest.items.find(s=>s.sessionId===ref.sessionId);if(!latestMeta)throw unavailable(id);
+      const verified=await resolveFile(latestMeta);if(normalized(verified.actual)!==normalized(actual))throw unavailable(id);
       const after = await checked(file);
       if (after.actual === actual && signature(after.stat) === key) {
         const chars = value.messages.reduce((n, m) => n + m.text.length, 0);

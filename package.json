@@ -1,7 +1,7 @@
 {
   "name": "codex-auth-manager",
   "productName": "Codex Auth Manager",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "A local Windows and macOS desktop manager for Codex accounts",
   "license": "MIT",
@@ -27,7 +27,9 @@
     "dist:mac": "electron-builder --mac dmg zip --arm64 --x64 --publish never"
   },
   "dependencies": {
-    "@iarna/toml": "2.2.5"
+    "@iarna/toml": "2.2.5",
+    "yaml": "2.9.1",
+    "yauzl": "3.4.0"
   },
   "devDependencies": {
     "electron": "39.8.10",

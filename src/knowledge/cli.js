@@ -3,15 +3,16 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
 const {resolveCli}=require('../official-login');
 const {stopChild}=require('../child-process-cleanup');
 const {EFFORT_ID}=require('./models');
-function cliArgs(model,reasoningEffort){
+function cliArgs(model,reasoningEffort,schemaPath){
   const args=['-a','never','exec','--ignore-user-config','--ignore-rules','--skip-git-repo-check','--ephemeral','--sandbox','read-only','--json','--color','never'];
   const config=['web_search="disabled"','project_doc_max_bytes=0','model_provider="openai"','cli_auth_credentials_store="file"','features.skip_host_skill_discovery=true'];
   for(const name of ['shell_tool','unified_exec','apps','plugins','memories','hooks','multi_agent','multi_agent_v2','browser_use','computer_use','image_generation','code_mode','skill_search','skill_implicit_invocation'])config.push(`features.${name}=false`);
   for(const value of config)args.push('-c',value);
   if(reasoningEffort)args.push('-c',`model_reasoning_effort=${JSON.stringify(reasoningEffort)}`);
+  if(schemaPath)args.push('--output-schema',schemaPath);
   if(model)args.push('--model',model);args.push('-');return args;
 }
-async function executeDistillation({home,prompt,model='',reasoningEffort='',signal,resolve=resolveCli,spawnProcess=spawn,stop=stopChild,timeoutMs=180000}){
+async function executeDistillation({home,prompt,outputSchema,model='',reasoningEffort='',signal,resolve=resolveCli,spawnProcess=spawn,stop=stopChild,timeoutMs=180000}){
   if(model&&!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(model))throw Error('模型名称格式无效。');
   if(typeof reasoningEffort!=='string'||(reasoningEffort&&!EFFORT_ID.test(reasoningEffort)))throw Error('推理强度格式无效。');
   const cli=await resolve();if(signal?.aborted)throw Error('已取消蒸馏。');
@@ -19,9 +20,11 @@ async function executeDistillation({home,prompt,model='',reasoningEffort='',sign
   const env={...process.env,CODEX_HOME:home};for(const key of Object.keys(env))if(/^(OPENAI_|CODEX_(ACCESS_TOKEN|API_KEY|BASE_URL)|ELECTRON_RUN_AS_NODE$)/i.test(key))delete env[key];
   let child,timer,abort,stopPromise;let buffer='',bytes=0,result='',completed=false,failure=null;
   try{
+    const schemaPath=outputSchema?path.join(cwd,'response-schema.json'):undefined;
+    if(schemaPath)await fs.writeFile(schemaPath,JSON.stringify(outputSchema),{mode:0o600});
     return await new Promise((resolveResult,reject)=>{
       const fail=message=>{if(!failure)failure=new Error(message);if(child&&!stopPromise)stopPromise=Promise.resolve().then(()=>stop(child)).catch(()=>{}).then(()=>reject(failure));};
-      child=spawnProcess(cli.command,[...cli.args,...cliArgs(model,reasoningEffort)],{cwd,env,windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
+      child=spawnProcess(cli.command,[...cli.args,...cliArgs(model,reasoningEffort,schemaPath)],{cwd,env,windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
       abort=()=>fail('已取消蒸馏。');signal?.addEventListener('abort',abort,{once:true});
       timer=setTimeout(()=>fail('蒸馏超时，请减少素材后重试。'),timeoutMs);
       child.stderr.resume();child.stdin.on('error',()=>fail('无法向 Codex CLI 发送素材。'));

@@ -44,3 +44,9 @@ Thumbs.db
 *.keychain
 *.dmg
 *.app/
+
+# Synthetic public repository archive used by offline Skills tests
+!scripts/fixtures/skills-repository.zip
+
+# Encrypted local GitHub credential is never source material
+github-token.enc

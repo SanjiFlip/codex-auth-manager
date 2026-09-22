@@ -1,0 +1,67 @@
+// Actual app/preload and isolated Skills Hub; GitHub and config writer are offline fixtures.
+const {app,BrowserWindow}=require('electron');
+const fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict');
+const TOML=require('@iarna/toml');
+const archive=process.platform==='darwin'?`release/${process.arch==='arm64'?'mac-arm64':'mac'}/Codex Auth Manager.app/Contents/Resources/app.asar/src`:'release/win-unpacked/resources/app.asar/src';
+const source=path.resolve(process.argv.includes('--packaged')?archive:'src');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cam-skills-ui-')),home=path.join(temp,'codex'),userHome=path.join(temp,'user'),bank=path.join(userHome,'.skillshub');
+fs.mkdirSync(path.join(home,'skills'),{recursive:true});fs.mkdirSync(path.join(bank,'existing-notes'),{recursive:true});
+fs.writeFileSync(path.join(bank,'existing-notes','SKILL.md'),'---\nname: existing-notes\ndescription: 现有 Skills Hub 技能，保持原始文件与链接。\n---\n\n# Existing notes\n');
+fs.symlinkSync(path.join(bank,'existing-notes'),path.join(home,'skills','existing-notes'),process.platform==='win32'?'junction':'dir');
+fs.writeFileSync(path.join(home,'config.toml'),'model = "fixture"\n');
+process.env.CODEX_HOME=home;process.env.CAM_DATA_ROOT=path.join(temp,'vault');app.setPath('userData',path.join(temp,'electron'));
+const fixture=require('./fixtures/skills-repository').createRepositoryFixture();
+const packet=text=>(Buffer.byteLength(text)+4).toString(16).padStart(4,'0')+text;
+const baseFetcher=process.argv.includes('--limited')?async url=>{if(url.startsWith('https://api.github.com/'))return new Response('{}',{status:403,headers:{'x-ratelimit-remaining':'0','x-ratelimit-reset':String(Math.floor(Date.now()/1000)+600)}});if(url.includes('/info/refs'))return new Response(packet(fixture.commit+' HEAD\n')+'0000');if(url.startsWith('https://codeload.github.com/'))return new Response(fs.readFileSync(path.join(__dirname,'fixtures/skills-repository.zip')));return fixture.fetcher(url)}:fixture.fetcher;
+let authenticatedRequests=0;
+const fetcher=async(url,options)=>{if(options?.headers?.Authorization){assert.ok(url.startsWith('https://api.github.com/'));authenticatedRequests++;if(url==='https://api.github.com/repos/sample/skills')return new Response('{"private":false}');return fixture.fetcher(url)}return baseFetcher(url,options)};
+const modulePath=path.join(source,'skills/manager'),factory=require(modulePath).createSkillsManager;
+require(modulePath).createSkillsManager=options=>factory({...options,userHome,bank,fetcher,writeConfig:async(h,changes)=>{const config=await require(path.join(source,'skills/config')).readConfig(h);config.skills={config:await require(path.join(source,'skills/config')).patchEntries(config.skills?.config||[],changes)};await fsp.writeFile(path.join(h,'config.toml'),TOML.stringify(config));}});
+require(path.join(source,'main'));
+let win;const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const evaluate=code=>win.webContents.executeJavaScript(code);
+const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+async function until(check,label){for(let i=0;i<100;i++){if(await check())return;await sleep(80)}throw Error('Timeout: '+label);}
+const input=(selector,value)=>evaluate(`{const el=document.querySelector(${JSON.stringify(selector)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('input',{bubbles:true}));}`);
+async function capture(name){await evaluate('document.querySelector("#toast").style.display="none"');win.showInactive();await sleep(180);fs.mkdirSync('output/skills',{recursive:true});fs.writeFileSync('output/skills/'+name+'.png',(await win.webContents.capturePage()).toPNG());}
+setTimeout(()=>{console.error('SKILLS FAIL timeout');app.exit(1)},50000);
+(async()=>{
+  await until(()=>{win=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('manager.html'));return win&&!win.webContents.isLoading()},'startup');win.setSize(1440,1020);win.webContents.setBackgroundThrottling(false);
+  await click('[data-page=skills]');await until(()=>evaluate('document.querySelectorAll(".s-card").length===1'),'existing skill');
+  await click('[data-sact=store]');await sleep(100);await click('.s-custom-source summary');await input('#s-repo','sample/skills');await click('[data-sact=custom-source]');await until(()=>evaluate('document.querySelectorAll(".s-store-grid .s-card").length===2'),'market');
+  await click('[data-sact=save-current-source]');await input('[name=source-name]','我的科研技能');await click('[data-submit=save-source]');await until(()=>evaluate('!document.querySelector("#skills-dialog")&&document.querySelectorAll(".s-store-grid .s-card").length===2'),'source saved');
+  assert.ok(await evaluate('document.querySelector(".s-sources").textContent.includes("我的科研技能")'));
+  await click('[data-sact=edit-source]');await input('[name=source-name]','自定义科研来源');await click('[data-submit=save-source]');await until(()=>evaluate('!document.querySelector("#skills-dialog")&&document.querySelector(".s-store-heading").textContent.includes("自定义科研来源")'),'source edited');
+  for(const [index,group] of ['daily','research'].entries()){
+    await evaluate(`document.querySelectorAll('[data-sact=preview-skill]')[${index}].click()`);await until(()=>evaluate('!!document.querySelector("#skills-dialog [name=group]")'),'preview');
+    assert.ok(await evaluate('document.querySelector(".s-preview").textContent.includes("---")'));await click(`[name=group][value=${group}]`);await click('[data-submit=install]');await until(()=>evaluate('!document.querySelector("#skills-dialog")'),'install');
+  }
+  if(process.argv.includes('--limited'))assert.ok(await evaluate('document.querySelector("#skills-body").textContent.includes("官方仓库快照")'));await capture('store');
+  await click('[data-sact=github-token]');assert.equal(await evaluate('document.querySelector("[name=github-token]").type'),'password');
+  const fakeToken='SYNTHETIC_TOKEN_FOR_OFFLINE_TEST_ONLY';await input('[name=github-token]',fakeToken);await click('[data-submit=save-token]');
+  await until(()=>evaluate('!document.querySelector("#skills-dialog")&&document.querySelector("[data-sact=github-token]")?.textContent==="Token 已设置"&&!document.querySelector("[data-sact=refresh-store]").disabled'),'token saved and refreshed');
+  assert.ok(authenticatedRequests>=3);assert.ok(!JSON.stringify(await evaluate('window.codexAuth.skillsList()')).includes(fakeToken));
+  assert.ok(!fs.readFileSync(path.join(temp,'vault/skills/github-token.enc'),'utf8').includes(fakeToken));
+  await click('[data-sact=github-token]');assert.equal(await evaluate('document.querySelector("[name=github-token]").value'),'');await capture('github-token');await click('#skills-dialog [data-close]');await capture('store');
+
+  let state=await evaluate('window.codexAuth.skillsList()');assert.equal(state.items.length,3);assert.equal(state.items.filter(i=>i.enabled).length,1,'new installation starts disabled');
+  await click('[data-sact=tab][data-id=groups]');await capture('groups');
+  for(const group of ['daily','research']){await click(`[data-sact=switch-group][data-id=${group}]`);await until(()=>evaluate('!!document.querySelector("[data-submit=apply]")'),'apply preview');await click('[data-submit=apply]');await until(()=>evaluate('!document.querySelector("#skills-dialog")'),'group applied');}
+  state=await evaluate('window.codexAuth.skillsList()');assert.deepEqual(state.activeGroupIds,['common','research']);assert.ok(state.items.find(i=>i.name==='research-review').enabled);assert.ok(!state.items.find(i=>i.name==='daily-notes').enabled);assert.ok(state.items.find(i=>i.name==='existing-notes').enabled);
+  assert.ok(fs.lstatSync(path.join(home,'skills','existing-notes')).isSymbolicLink());assert.match(fs.readFileSync(path.join(bank,'existing-notes','SKILL.md'),'utf8'),/Existing notes/);
+  await capture('groups-active');await click('[data-sact=tab][data-id=library]');await capture('library');
+  await input('#s-search','research');assert.equal(await evaluate('document.querySelectorAll(".s-card").length'),1);await input('#s-search','');
+  await click('[data-sact=tab][data-id=groups]');await click('[data-sact=new-group]');await input('#skills-dialog [name=name]','写作');await click('#skills-dialog [name=skill]');await click('[data-submit=save]');await until(()=>evaluate('!document.querySelector("#skills-dialog")'),'save group');assert.equal(await evaluate('document.querySelectorAll(".s-group").length'),4);
+  await click('[data-sact=edit-group][data-id=common]');
+  await click('[data-pick-all=yes]');assert.equal(await evaluate('document.querySelectorAll("[name=skill]:checked").length'),3);assert.ok(await evaluate('document.querySelector("[data-pick-all=yes]").disabled'));
+  await click('[name=skill]');assert.ok(await evaluate('!document.querySelector("[data-pick-all=yes]").disabled'));assert.ok(await evaluate('document.querySelector("[data-pick-count]").textContent.includes("2 / 3")'));
+  await click('[data-pick-all=no]');assert.equal(await evaluate('document.querySelectorAll("[name=skill]:checked").length'),0);assert.ok(await evaluate('document.querySelector("[data-pick-all=no]").disabled'));
+  await click('[data-pick-all=yes]');await capture('group-select-all');await click('#skills-dialog [data-close]');assert.deepEqual((await evaluate('window.codexAuth.skillsList()')).groups.find(g=>g.id==='common').skillIds,[],'cancel does not save selection');
+  await click('[data-sact=edit-group][data-id=common]');await click('[data-pick-all=yes]');await click('[data-submit=save]');await until(()=>evaluate('!document.querySelector("#skills-dialog")'),'all saved');assert.equal((await evaluate('window.codexAuth.skillsList()')).groups.find(g=>g.id==='common').skillIds.length,3);
+  win.setSize(1000,850);await evaluate('document.body.classList.add("dark")');await capture('groups-dark');assert.ok(await evaluate('document.querySelector("#content").scrollWidth<=document.querySelector("#content").clientWidth'));
+  win.reload();await until(()=>!win.webContents.isLoading(),'reload');await click('[data-page=skills]');await until(()=>evaluate('document.querySelectorAll(".s-card").length===3'),'persistence');
+  await click('[data-sact=store]');await until(()=>evaluate('document.querySelectorAll("[data-sact=source]").length===4'),'source persistence');
+  const savedSource=(await evaluate('window.codexAuth.skillsList()')).sources.find(s=>s.custom);await click(`[data-sact=source][data-id="${savedSource.id}"]`);await until(()=>evaluate('document.querySelectorAll(".s-store-grid .s-card").length===2'),'source switch');assert.ok(await evaluate('document.querySelector(".s-store-heading").textContent.includes("自定义科研来源")'));
+  await capture('custom-sources-dark');assert.equal((await evaluate('window.codexAuth.skillsList()')).githubToken.configured,true);await click('[data-sact=github-token]');await click('[data-submit=remove-token]');await until(()=>evaluate('!document.querySelector("#skills-dialog")&&!document.querySelector("[data-sact=refresh-store]").disabled'),'token removed');assert.equal(fs.existsSync(path.join(temp,'vault/skills/github-token.enc')),false);await click('[data-sact=edit-source]');await click('[data-submit=remove-source]');await until(()=>evaluate('!document.querySelector("#skills-dialog")&&document.querySelectorAll("[data-sact=source]").length===3'),'source removed');assert.equal((await evaluate('window.codexAuth.skillsList()')).items.length,3,'source removal leaves installed skills');
+  console.log('SKILLS PASS: existing junction preservation, repository browse, preview/license, install disabled, scenario union/switch, config status, group edit, persistence, responsive UI. Synthetic data only.');app.exit(0);
+})().catch(e=>{console.error('SKILLS FAIL',e);app.exit(1)});

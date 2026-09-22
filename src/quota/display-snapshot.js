@@ -3,6 +3,11 @@ const time=value=>Number.isFinite(Date.parse(value))?Date.parse(value):0;
 const {selectWindow}=require('./select-window');
 function displaySnapshot(official,local){
   if(!official&&!local)return null;
+  // A model-specific bucket is independent of the main account allowance.
+  if(official&&local){
+    const id=official.limitId||'codex';
+    local=[local,...(local.additional||[])].find(bucket=>(bucket.limitId||'codex')===id)||null;
+  }
   const result={...(official||local)};
   let latest=0,source=official?.source||local?.source;
   for(const key of ['session','weekly']){

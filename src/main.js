@@ -104,12 +104,16 @@ const {createKnowledgeStore,markdown:knowledgeMarkdown}=require('./knowledge/sto
 const {createSessionLibrary}=require('./knowledge/sessions');
 const {executeDistillation}=require('./knowledge/cli');
 const {createWorkbench}=require('./knowledge/workbench');
+const skillsManager=require('./skills/manager').createSkillsManager({root:path.join(storeRoot(),'skills'),home:codexDir(),userHome:os.homedir(),encrypt:text=>{if(!safeStorage.isEncryptionAvailable())throw Error('系统加密服务不可用。');return safeStorage.encryptString(text).toString('base64')},decrypt:text=>safeStorage.decryptString(Buffer.from(text,'base64'))});
 const {readModelCatalog,resolveModelSelection}=require('./knowledge/models');
 const knowledgeStore=createKnowledgeStore({root:path.join(storeRoot(),'knowledge'),
   encrypt:text=>{if(!safeStorage.isEncryptionAvailable())throw Error('系统加密服务不可用。');return safeStorage.encryptString(text).toString('base64')},
   decrypt:text=>safeStorage.decryptString(Buffer.from(text,'base64'))});
 const sessionLibrary=createSessionLibrary(codexDir());
 const workbench=createWorkbench({library:sessionLibrary,store:knowledgeStore,
+  jobs:require('./knowledge/jobs').createJobStore({root:path.join(storeRoot(),'knowledge','jobs'),
+    encrypt:text=>{if(!safeStorage.isEncryptionAvailable())throw Error('系统加密服务不可用。');return safeStorage.encryptString(text).toString('base64')},
+    decrypt:text=>safeStorage.decryptString(Buffer.from(text,'base64'))}),
   resolveModel:request=>resolveModelSelection(codexDir(),request),
   execute:options=>executeDistillation({...options,home:codexDir()}),
   withAccount:task=>runAccountOperation(async()=>{
@@ -4499,6 +4503,7 @@ function registerIpc() {
     if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('不允许从此窗口访问知识库。');
     return handler(...args);
   });
+  for(const method of ['list','catalog','preview','install','saveGroup','removeGroup','saveSource','removeSource','saveToken','removeToken','plan','apply','detail'])knowledgeHandle('skills:'+method,input=>skillsManager[method](input));
   knowledgeHandle('knowledge:models',()=>readModelCatalog(codexDir()));
   knowledgeHandle('knowledge:list',()=>knowledgeStore.list());
   knowledgeHandle('knowledge:save',input=>knowledgeStore.save(input));
@@ -4506,13 +4511,16 @@ function registerIpc() {
   knowledgeHandle('knowledge:sessions',()=>sessionLibrary.list({force:true}));
   knowledgeHandle('knowledge:transcript',async id=>{
     try { return await sessionLibrary.transcript(id); }
-    catch(error) { if(error.code==='SESSION_UNAVAILABLE')return {unavailable:true,messages:[]};throw error; }
+    catch(error) { if(error.code==='SESSION_UNAVAILABLE')return {unavailable:true,messages:[]};if(error.code==='SESSION_NOT_LOCAL')return {notLocal:true,messages:[]};throw error; }
   });
+  knowledgeHandle('knowledge:preview',request=>workbench.preview(request));
   knowledgeHandle('knowledge:start',request=>workbench.start(request));
-  knowledgeHandle('knowledge:state',()=>workbench.state());
+  knowledgeHandle('knowledge:state',async()=>{await workbench.ready();return workbench.state()});
+  knowledgeHandle('knowledge:resume',()=>workbench.resume());
+  knowledgeHandle('knowledge:discard',()=>workbench.discard());
   knowledgeHandle('knowledge:cancel',()=>workbench.cancel());
   knowledgeHandle('knowledge:export',async id=>{
-    const items=await knowledgeStore.list();const item=items.find(x=>x.id===id);
+    const item=await knowledgeStore.get(id);
     if(!item)throw Error('条目不存在，请刷新。');
     const result=await dialog.showSaveDialog(mainWindow,{title:'导出 Markdown',defaultPath:item.kind==='skill'?'SKILL.md':'memory.md',filters:[{name:'Markdown',extensions:['md']}]});
     if(result.canceled||!result.filePath)return false;

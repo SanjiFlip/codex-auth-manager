@@ -22,21 +22,40 @@ app.whenReady().then(async () => {
   assert.equal(await evaluate('document.querySelectorAll(".account-card").length'),1);
   await evaluate(`search='';render()`);
   await evaluate(`run(async()=>render())`);assert.ok(await evaluate('[...document.querySelectorAll(".switch-btn")].every(button=>!button.disabled)'),'account controls must recover after an operation');
-  for(const page of ['accounts','usage','quotas','distill','memory','activity','diagnostics','settings']){
+  for(const page of ['accounts','usage','quotas','distill','skills','memory','activity','diagnostics','settings']){
     await click(`[data-page="${page}"]`); await sleep(50); await screenshot(page);
     assert.ok(await evaluate('document.querySelector("#content").scrollWidth<=document.querySelector("#content").clientWidth'),'no horizontal overflow '+page);
   }
+  await click('[data-page="skills"]');
+  await evaluate(`window.longSkills=window.createSkillsUI({api:{skillsList:async()=>({revision:0,activeGroupIds:[],groups:[],warnings:[],history:[],sources:[],items:Array.from({length:145},(_,i)=>({id:'skill'+i,name:'skill-'+i,description:'Long library fixture',groupIds:[],linked:true,enabled:true}))})},demo:false,toast});window.longSkills.render(document.querySelector('#content'));`);await sleep(60);
+  assert.equal(await evaluate('document.querySelectorAll(".s-card").length'),60);
+  await click('[data-sact=more-cards]');assert.equal(await evaluate('document.querySelectorAll(".s-card").length'),120);
+  await click('[data-sact=more-cards]');assert.equal(await evaluate('document.querySelectorAll(".s-card").length'),145);
+  await evaluate(`{const q=document.querySelector('#s-search');q.value='skill-144';q.dispatchEvent(new Event('input',{bubbles:true}))}`);
+  assert.equal(await evaluate('document.querySelectorAll(".s-card").length'),1);
   // Large synthetic library uses the same renderer and delegated event handlers.
   await click('[data-page="distill"]');
   await evaluate(`window.designMessages=Array.from({length:500},(_,i)=>({index:i,role:i%2?'assistant':'user',text:'合成素材 '+i+'。用于验证分页、选择和滚动保留。',fingerprint:'f'+i}));
     window.designItems=Array.from({length:250},(_,i)=>({id:'item'+i,kind:['task','profile','workflow','skill','prompt'][i%5],title:'知识条目 '+String(i).padStart(3,'0'),body:'项目背景、已确认约定与可复用方法。',project:'示例项目',origin:'distill',status:i%3?'saved':'draft',sources:[],updatedAt:new Date(Date.now()-i*60000).toISOString()}));
-    window.designUI=window.createKnowledgeUI({api:{knowledgeModels:async()=>({defaultModel:'design-model',defaultReasoningEffort:'medium',models:[{id:'design-model',name:'设计测试模型',defaultEffort:'medium',efforts:[{effort:'medium'}]}]}),knowledgeList:async()=>window.designItems,knowledgeState:async()=>({phase:'idle'}),knowledgeSessions:async()=>({items:Array.from({length:150},(_,i)=>({id:'s'+i,title:'项目会话 '+i,project:'示例项目',sessionId:'session'+i,updatedAt:new Date().toISOString()}))}),knowledgeTranscript:async()=>({messages:window.designMessages})},demo:false,toast});
+    window.designUI=window.createKnowledgeUI({api:{knowledgeModels:async()=>({defaultModel:'design-model',defaultReasoningEffort:'medium',models:[{id:'design-model',name:'设计测试模型',defaultEffort:'medium',efforts:[{effort:'medium'}]}]}),knowledgeList:async()=>window.designItems,knowledgeState:async()=>({phase:'idle'}),knowledgeSessions:async()=>({items:Array.from({length:150},(_,i)=>({id:'s'+i,title:'项目会话 '+i,projectId:i<100?'project-a':'project-b',project:i<100?'日常开发':'文档工作',sessionId:'session'+i,updatedAt:new Date().toISOString()}))}),knowledgeTranscript:async()=>{window.transcriptReads=(window.transcriptReads||0)+1;if(window.designHold)await new Promise(r=>window.designRelease=r);if(window.designUnavailable)return {unavailable:true,messages:[]};return {messages:window.designMessages}}},demo:false,toast});
     window.designUI.render('distill',document.querySelector('#content'));`);
   await sleep(50);await click('[data-kact="sessions"]');await sleep(50);
-  assert.equal(await evaluate('document.querySelectorAll(".k-session").length'),50);
+  assert.equal(await evaluate('document.querySelectorAll(".k-project-toggle").length'),2);
+  assert.equal(await evaluate('document.querySelectorAll(".k-session").length'),0,'project rows start collapsed');
+  await click('.k-project-toggle');assert.equal(await evaluate('document.querySelectorAll(".k-session").length'),5);
+  await click('[data-kact="project-more"]');assert.equal(await evaluate('document.querySelectorAll(".k-session").length'),25);
+  await click('.k-project-toggle');assert.equal(await evaluate('document.querySelectorAll(".k-session").length'),0);
+  await click('.k-project-toggle');assert.equal(await evaluate('document.querySelectorAll(".k-session").length'),25,'expanded range survives collapse');
+  assert.equal(await evaluate('window.transcriptReads||0'),0,'project expansion must not read message bodies');
+  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='项目会话 149';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await sleep(180);
+  assert.equal(await evaluate('document.querySelectorAll(".k-project-toggle").length'),1);assert.equal(await evaluate('document.querySelector(".k-session").textContent.trim()'),'项目会话 149');
+  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await sleep(180);
+  assert.equal(await evaluate('document.querySelectorAll(".k-project-toggle").length'),2);
+  assert.equal(await evaluate('document.querySelectorAll(".k-session small").length'),0,'no repeated timestamp or selection detail');
   await click('.k-session');await sleep(50);
   assert.equal(await evaluate('document.querySelectorAll("[data-message]").length'),24);
   assert.ok(await evaluate(`(()=>{const node=document.querySelector('[data-message="0"]'),box=document.querySelector('.k-transcript');box.scrollTop=90;const before=box.scrollTop;node.click();return document.querySelector('[data-message="0"]')===node&&box.scrollTop===before&&node.closest('.k-message').classList.contains('chosen')})()`),'selection must preserve message node and scroll');
+  await click('.k-project-toggle');assert.ok(await evaluate('document.querySelector("input[data-message]").checked'),'collapsing project preserves selected messages');await click('.k-project-toggle');
   await click('[data-key="messages"][data-step="1"]');await click('[data-message="24"]');
   await click('[data-key="messages"][data-step="-1"]');assert.ok(await evaluate(`document.querySelector('[data-message="0"]').checked`));
   await click('[data-kact="selected-only"]');assert.equal(await evaluate('document.querySelectorAll("[data-message]").length'),2);
@@ -46,6 +65,26 @@ app.whenReady().then(async () => {
   assert.ok(await evaluate('document.activeElement===window.keptTitle&&window.keptTitle.value==="保留输入和焦点"'),'progress must not replace inputs');
   await evaluate(`window.designUI.update({phase:'idle'});`);
   await evaluate(`window.designMessages[0]={...window.designMessages[0],text:'Edited material',fingerprint:'changed'};`);await click('.k-session.selected');await sleep(50);assert.ok(await evaluate(`!document.querySelector('[data-message="0"]').checked`),'changed selected content must require renewed review');
+  for(let i=0;i<4;i++)await click('.k-project-group:first-child [data-kact="project-more"]');
+  assert.equal(await evaluate('document.querySelectorAll(".k-project-group:first-child .k-session").length'),100);
+  await click('.k-project-group:first-child [data-kact="project-less"]');
+  assert.equal(await evaluate('document.querySelectorAll(".k-project-group:first-child .k-session").length'),5);
+  await click('.k-project-group:nth-child(2) .k-project-toggle');
+  // Whole-project selection spans collapsed rows and filters, with reversible atomic reads.
+  await evaluate(`window.designMessages=[{index:0,role:'user',text:'Short project fixture',fingerprint:'short'}];`);
+  await click('[data-project-check="id:project-a"]');await sleep(150);
+  assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 100 条');
+  assert.ok(await evaluate('document.querySelector("[data-project-check]").checked'));
+  await click('[data-session-check="s0"]');assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 99 条');
+  assert.ok(await evaluate('document.querySelector("[data-project-check]").indeterminate'));
+  await click('[data-session-check="s0"]');await sleep(60);assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 100 条');
+  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='项目会话 149';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await sleep(180);
+  await click('[data-project-check="id:project-b"]');await sleep(150);assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 150 条','project selection includes filtered-out sessions');
+  await click('[data-project-check="id:project-b"]');assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 100 条');
+  await evaluate('window.designUnavailable=true');await click('[data-project-check="id:project-b"]');await sleep(60);assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 100 条','unavailable selection must be atomic');
+  await evaluate('window.designUnavailable=false;window.designHold=true');await click('[data-project-check="id:project-b"]');await sleep(60);await click('[data-kact="cancel-selection"]');await evaluate('window.designHold=false;window.designRelease()');await sleep(60);assert.equal(await evaluate('document.querySelector("#k-count").textContent'),'已选 100 条','cancel leaves original selection');
+  await evaluate(`{const search=document.querySelector('#k-session-search');search.value='';search.dispatchEvent(new Event('input',{bubbles:true}))}`);await sleep(180);
+  await evaluate('document.querySelector("#toast").classList.remove("show")');
   await screenshot('distill-large');
   await click('[data-page="memory"]');await evaluate(`window.designUI.render('memory',document.querySelector('#content'))`);
   assert.equal(await evaluate('document.querySelectorAll(".k-card").length'),24);
@@ -55,7 +94,7 @@ app.whenReady().then(async () => {
   assert.equal(await evaluate('document.querySelectorAll(".k-card").length'),24);
   await screenshot('memory-large');
   win.setSize(1000,820);await evaluate('document.body.classList.add("dark")');
-  for(const page of ['accounts','usage','quotas','distill','memory','activity','diagnostics','settings']){
+  for(const page of ['accounts','usage','quotas','distill','skills','memory','activity','diagnostics','settings']){
     await click(`[data-page="${page}"]`);await sleep(30);
     assert.ok(await evaluate('document.querySelector("#content").scrollWidth<=document.querySelector("#content").clientWidth'),'compact overflow '+page);
     await screenshot(page+'-compact-dark');
@@ -72,6 +111,6 @@ app.whenReady().then(async () => {
   assert.ok(layout.scroll<=layout.content,'Plus meter should fit: '+JSON.stringify(layout));
   await me('document.querySelector("#message").hidden=true;document.body.classList.add("dark")');await screenshot('meter-plus-dark',meter);
   assert.deepEqual(errors,[]);
-  const report={checks:'8 pages at 1400x940 and 1000x820; Pro/Plus meter at 360x560; search, pagination, selection, focus retention, unchanged refresh',messageNodes:24,totalMessages:500,memoryCards:24,totalItems:250,sessionNodes:50,totalSessions:150,unchangedRefreshPreservesDOM:redraw};
+  const report={checks:'9 pages at 1400x940 and 1000x820; Pro/Plus meter at 360x560; search, pagination, selection, focus retention, unchanged refresh',messageNodes:24,totalMessages:500,memoryCards:24,totalItems:250,projectNodes:2,initialSessionsPerProject:5,totalSessions:150,unchangedRefreshPreservesDOM:redraw};
   fs.writeFileSync(path.join(root,'report.json'),JSON.stringify(report,null,2));console.log('DESIGN PASS '+JSON.stringify(report));app.exit(0);
 }).catch(error=>{console.error('DESIGN FAIL',error.stack);app.exit(1)});

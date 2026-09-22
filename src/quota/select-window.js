@@ -11,7 +11,10 @@ function selectWindow(previous, next, previousAt, nextAt) {
   if (measured(previous) && !measured(next)) return previous;
   if (previous.usedPercent > 0 && next.usedPercent === 0) {
     const before = resetTime(previous.resetsAt), after = resetTime(next.resetsAt);
-    if (before && (!after || after <= before)) return previous;
+    const observedAt = time(next.checkedAt || nextAt);
+    // A moving reset timestamp alone is not evidence of a completed reset.
+    // Unknown boundaries retain the measurement until an official refresh.
+    if (!before || !after || after <= before || observedAt < before || after <= observedAt) return previous;
   }
   return next;
 }

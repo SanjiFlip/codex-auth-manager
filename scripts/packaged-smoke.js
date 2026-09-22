@@ -20,6 +20,8 @@ fs.writeFileSync(path.join(pkg,'bin','codex.js'),'throw Error("Do not launch the
 execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',`Add-Type -Path 'scripts/fixture-cli.cs' -OutputAssembly '${cliExe.replaceAll("'","''")}' -OutputType ConsoleApplication`],{windowsHide:true});
 const pathKey=Object.keys(env).find(k=>k.toLowerCase()==='path')||'Path';env[pathKey]=cliRoot+path.delimiter+(env[pathKey]||'');
 env.CAM_TEST_CLI_MARKER=path.join(temp,'queried');
+const quotaReset=Math.floor(Date.now()/1000)+5*86400;
+env.CAM_TEST_LIMITS=JSON.stringify({rateLimits:{limitId:'codex',planType:'prolite',primary:{usedPercent:41,windowDurationMins:10080,resetsAt:quotaReset}}});
 const child=spawn(exe,[`--user-data-dir=${path.join(temp,'profile')}`,`--remote-debugging-port=${port}`],{env,windowsHide:true,stdio:'ignore'});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const sockets=[];
@@ -39,7 +41,7 @@ async function connect(target){
     for(let i=0;i<60;i++){if(await main.eval('!!window.codexAuth && !!document.querySelector("h1")'))break;await sleep(200)}
     const state=await main.eval('window.codexAuth.importCurrent("Packaged test account")');
     assert.equal(state.settings.proFiveHourEnabled,false);
-    assert.equal(state.version,'0.5.0');assert.equal(state.accounts[0].planType,'prolite');
+    assert.equal(state.version,require('../package.json').version);assert.equal(state.accounts[0].planType,'prolite');
     assert.ok(!JSON.stringify(state).includes('SYNTHETIC-PACKAGED-TEST'));
     assert.equal(state.storeRoot,path.join(temp,'vault'));
     assert.equal(await main.eval('window.planLabel("prolite")'),'Pro 5x');
@@ -75,8 +77,30 @@ async function connect(target){
     for(let i=0;i<100&&!fs.existsSync(path.join(temp,'queried'));i++)await sleep(100);
     assert.ok(fs.existsSync(path.join(temp,'queried')),'Explicit official refresh invokes isolated synthetic CLI');
     assert.equal(JSON.parse(fs.readFileSync(path.join(temp,'queried'))).consoleVisible,false,'Native quota process must have no visible console');
+    // Replay a fresh default-zero log after an explicit measured response.
+    await main.eval('window.codexAuth.showWidget()');
+    for(let i=0;i<60;i++){if(await meter.eval('document.querySelector("#session").textContent')==='59%')break;await sleep(100)}
+    assert.equal(await meter.eval('document.querySelector("#session").textContent'),'59%');
+    const sessions=path.join(home,'sessions');fs.mkdirSync(sessions,{recursive:true});
+    const stamp=new Date().toISOString();
+    fs.writeFileSync(path.join(sessions,'rollout-quota-regression.jsonl'),[
+      {type:'session_meta',timestamp:stamp,payload:{id:'quota-regression',timestamp:stamp,cwd:temp}},
+      {type:'event_msg',timestamp:stamp,payload:{type:'token_count',info:null,rate_limits:{limit_id:'codex',plan_type:'prolite',primary:{used_percent:0,window_minutes:10080,resets_at:quotaReset+1}}}},
+    ].map(row=>JSON.stringify(row)).join('\n')+'\n');
+    await main.eval('window.codexAuth.refreshLocalData()');
+    // Cross the watcher and periodic refresh, checking both actual renderers.
+    for(let poll=0;poll<12;poll++){
+      await sleep(1000);
+      const current=await main.eval('window.codexAuth.getState()');
+      assert.equal(current.accounts[0].quotaSnapshot.weekly.usedPercent,41,'local refresh must preserve official usage');
+      assert.equal(await meter.eval('document.querySelector("#session").textContent'),'59%','meter must not revert to 100%');
+      assert.ok(await main.eval('document.querySelector("#content").textContent.includes("59%")'),'main dashboard must preserve 59%');
+    }
+    const savedIndex=JSON.parse(fs.readFileSync(path.join(temp,'vault','accounts.json'),'utf8'));
+    assert.equal(savedIndex.accounts[0].quotaSnapshot.weekly.usedPercent,0,'fixture must reach the real local reader and persist before display arbitration');
+    assert.equal(savedIndex.accounts[0].quotaSnapshot.weekly.resetsAt,quotaReset+1);
     assert.equal(fs.readFileSync(path.join(home,'auth.json'),'utf8'),auth);
     assert.ok(fs.existsSync('release/win-unpacked/resources/app.asar.unpacked/src/windows-codex.ps1'));
-    console.log('PACKAGED PASS: EXE 0.5.0 startup, isolated vault, real IPC/DPAPI, Pro 5x, shared theme, native meter, pin, missing quota, unpacked Windows helper, current auth unchanged.');
+    console.log('PACKAGED PASS: EXE startup, isolated vault, real IPC/DPAPI, Pro 5x, shared theme, native meter, pin, missing quota, unpacked Windows helper, current auth unchanged, quota preserved after default-zero log and periodic refresh.');
   }finally{for(const socket of sockets)socket.close();if(child.exitCode===null)child.kill();}
 })().catch(e=>{console.error('PACKAGED FAIL:',e.message);process.exitCode=1});

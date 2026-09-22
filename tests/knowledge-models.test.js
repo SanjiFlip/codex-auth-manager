@@ -30,11 +30,11 @@ test('local picker reports missing/corrupt cache without fabricating choices and
 });
 test('workbench validates model and effort inside the account lock before executing',async t=>{
   const home=await fixture(t);let locked=false,calls=0;
-  const wb=createWorkbench({library:{list:async()=>({items:[{id:'s',title:'fixture'}]}),transcript:async()=>({messages:[{index:0,text:'fixture',fingerprint:'f'}]})},store:{save:async()=>({id:'draft'})},withAccount:async fn=>{locked=true;try{return await fn()}finally{locked=false}},resolveModel:async req=>{assert.ok(locked);return resolveModelSelection(home,req)},execute:async req=>{calls++;assert.equal(req.model,'deep');assert.equal(req.reasoningEffort,'ultra');return 'result'}});
+  const wb=createWorkbench({library:{list:async()=>({items:[{id:'s',title:'fixture'}]}),transcript:async()=>({messages:[{index:0,text:'fixture',fingerprint:'f'}]})},store:{save:async()=>({id:'draft'})},withAccount:async fn=>{locked=true;try{return await fn()}finally{locked=false}},resolveModel:async req=>{assert.ok(locked);return resolveModelSelection(home,req)},execute:async req=>{calls++;assert.equal(req.model,'deep');assert.equal(req.reasoningEffort,'ultra');return require('../scripts/fixtures/distillation-model')(req)}});
   const request={kind:'task',title:'test',project:'',instructions:'',model:'deep',reasoningEffort:'ultra',selection:[{id:'s',messages:[0],fingerprints:{0:'f'}}]};
   const wait=async()=>{while(wb.busy())await new Promise(r=>setTimeout(r,5));};
-  wb.start(request);await wait();assert.equal(wb.state().phase,'completed');assert.equal(calls,1);
-  wb.start({...request,model:'fast'});await wait();assert.equal(wb.state().phase,'failed');assert.equal(calls,1);
+  wb.start(request);await wait();assert.equal(wb.state().phase,'completed');assert.equal(calls,2);
+  wb.start({...request,model:'fast'});await wait();assert.equal(wb.state().phase,'failed');assert.equal(calls,2);
 });
 test('CLI rejects malformed reasoning before starting any child process',async()=>{
   let resolved=false;

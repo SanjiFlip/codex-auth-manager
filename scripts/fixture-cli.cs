@@ -15,6 +15,7 @@ public class FixtureCli {
       if (line.Contains("account/read")) result = "{\"account\":{\"type\":\"chatgpt\",\"email\":\"test@example.invalid\",\"planType\":\"prolite\"}}";
       if (line.Contains("account/rateLimits/read")) {
         result = "{\"rateLimits\":{\"planType\":\"prolite\"}}";
+        result = Environment.GetEnvironmentVariable("CAM_TEST_LIMITS") ?? result;
         File.WriteAllText(Environment.GetEnvironmentVariable("CAM_TEST_CLI_MARKER"), "{\"consoleVisible\":" + (IsWindowVisible(GetConsoleWindow()) ? "true" : "false") + "}");
       }
       Console.WriteLine("{\"id\":" + id.Groups[1].Value + ",\"result\":" + result + "}");

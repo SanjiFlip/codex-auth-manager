@@ -47,7 +47,7 @@ async function activeSessions(home, sessionId) {
     }
     const roots=[...projects.values()].flatMap(p=>p.roots.map(root=>({root,project:p}))).sort((a,b)=>b.root.length-a.root.length);
     const matches=cwd=>roots.find(({root})=>cwd===root||cwd.startsWith(root+'/'))?.project;
-    const projection=['id','rollout_path','cwd','source',...['title','project_id','updated_at'].filter(c=>columns.has(c))].join(',');
+    const projection=['id','rollout_path','cwd','source',...['title','project_id','updated_at','updated_at_ms','recency_at','recency_at_ms'].filter(c=>columns.has(c))].join(',');
     const rows=db.prepare(`SELECT ${projection} FROM threads WHERE archived=0 AND source IN ('cli','vscode','exec','app-server')${sessionId?' AND id=?':''}${columns.has('updated_at')?' ORDER BY updated_at DESC':''}`).all(...(sessionId?[sessionId]:[]));
     const items=[];
     for (const row of rows) {
@@ -66,8 +66,8 @@ async function activeSessions(home, sessionId) {
           }
         } else project=matches(normalized(row.cwd));
       }
-      if (!project || typeof row.rollout_path !== 'string') continue;
-      items.push({sessionId:row.id,file:row.rollout_path,projectId:project.id,project:project.name,title:typeof row.title==='string'&&row.title.trim()?row.title.trim().slice(0,160):project.name});
+      if (!project) continue;
+      items.push({sessionId:row.id,file:typeof row.rollout_path==='string'?row.rollout_path:null,updatedAt:Number(row.updated_at_ms)||Number(row.updated_at)*1000||null,projectId:project.id,project:project.name,title:typeof row.title==='string'&&row.title.trim()?row.title.trim().slice(0,160):project.name});
     }
     return {items,projectCount:projects.size};
   } catch { throw Error('无法读取 Codex 启用项目或归档状态。本次不读取会话正文，请稍后重试。'); }

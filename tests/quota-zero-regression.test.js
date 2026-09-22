@@ -8,7 +8,7 @@ test('fresh local zero cannot overwrite measured usage in the same weekly period
   const official={source:'official-app-server',checkedAt:'2026-09-21T11:00:00Z',weekly:{usedPercent:41,resetsAt:new Date(reset*1000).toISOString()}};
   assert.equal(displaySnapshot(official,bucket(0)).weekly.usedPercent,41);
   assert.equal(displaySnapshot(official,bucket(46)).weekly.usedPercent,46);
-  assert.equal(displaySnapshot(official,bucket(0,reset+604800)).weekly.usedPercent,0);
+  assert.equal(displaySnapshot(official,bucket(0,reset+604800,new Date(reset*1000+1000).toISOString())).weekly.usedPercent,0);
   assert.equal(displaySnapshot({...official,checkedAt:'2026-09-21T13:00:00Z',weekly:{...official.weekly,usedPercent:0}},bucket(46)).weekly.usedPercent,0);
 });
 test('local records retain a measured window across zero and partial events in either file order',()=>{
@@ -20,6 +20,6 @@ test('local records retain a measured window across zero and partial events in e
       assert.equal(result.weekly.checkedAt,previous.checkedAt);
     }
   }
-  assert.equal(combineBuckets([previous,bucket(0,reset+604800)]).weekly.usedPercent,0);
+  assert.equal(combineBuckets([previous,bucket(0,reset+604800,new Date(reset*1000+1000).toISOString())]).weekly.usedPercent,0);
   assert.equal(combineBuckets([bucket(0)]).weekly.usedPercent,0);
 });

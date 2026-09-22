@@ -1,6 +1,7 @@
 'use strict';
 const paths = {
   spark:'m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4L12 3M20 2v4m-2-2h4',
+  layers:'m12 3 10 5-10 5L2 8l10-5M2 12l10 5 10-5M2 16l10 5 10-5',
   book:'M12 5v16M12 5C8 2 4 3 2 4v15c4-2 7-1 10 2 3-3 6-4 10-2V4c-2-1-6-2-10 1Z',
   users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87',
   chart:'M4 3v17h17M8 15v-4M13 15V7M18 15v-6', clock:'M12 8v4l3 2',
@@ -38,6 +39,7 @@ function demoApi() {
 }
 const api=isDemo?demoApi():window.codexAuth;
 const knowledge=window.createKnowledgeUI({api,demo:isDemo,toast});
+const skillsUI=window.createSkillsUI({api,demo:isDemo,toast});
 if(window.codexAuth)document.body.classList.add('desktop');
 let renderedPage=null,lastRenderedKey='';
 // Compare only what the dashboard displays, not scanner bookkeeping timestamps.
@@ -121,8 +123,8 @@ function render() {
   if(renderedPage!==page){$('.page-scroll').scrollTop=0;renderedPage=page}
   $('#nav-count').textContent=state.accounts.length;
   document.querySelectorAll('[data-page]').forEach(el=>{el.classList.toggle('active',el.dataset.page===page);if(el.dataset.page===page)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current')});
-  $('#breadcrumb').textContent={accounts:'账号管理',usage:'用量概览',quotas:'订阅额度',diagnostics:'环境体检',activity:'操作记录',settings:'应用设置',distill:'蒸馏工作台',memory:'记忆库'}[page];
-  if(page==='distill'||page==='memory')knowledge.render(page,$('#content')); else if(page==='accounts')renderAccounts(); else if(page==='usage')renderUsage(); else if(page==='settings')renderSettings(); else if(page==='quotas')renderQuotas(); else if(page==='diagnostics')renderDiagnostics();
+  $('#breadcrumb').textContent={accounts:'账号管理',usage:'用量概览',quotas:'订阅额度',diagnostics:'环境体检',activity:'操作记录',settings:'应用设置',distill:'蒸馏工作台',memory:'记忆库',skills:'Skills 管理'}[page];
+  if(page==='skills')skillsUI.render($('#content')); else if(page==='distill'||page==='memory')knowledge.render(page,$('#content')); else if(page==='accounts')renderAccounts(); else if(page==='usage')renderUsage(); else if(page==='settings')renderSettings(); else if(page==='quotas')renderQuotas(); else if(page==='diagnostics')renderDiagnostics();
   else $('#content').innerHTML=heading('操作记录','查看本次启动以来的操作结果与问题记录。密码和令牌不会出现在这里。')+`<div class="panel"><h2>本次会话</h2>${events.length?events.map(e=>`<div class="log-entry"><time>${escape(e.time)}</time><span>${escape(e.message)}</span></div>`).join(''):'<div class="k-empty"><span class="k-empty-symbol">✓</span><strong>工作空间已就绪</strong><p>账号切换、额度刷新与管理结果会记录在这里。<br>记录仅保留在本次工具会话中。</p></div>'}</div>`;
   lastRenderedKey=viewKey(state,statistics);
   if(focus){const input=document.getElementById(focus.id);if(input){input.focus({preventScroll:true});if(focus.start!==null)input.setSelectionRange(focus.start,focus.end)}}

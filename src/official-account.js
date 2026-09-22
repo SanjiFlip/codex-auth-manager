@@ -13,7 +13,7 @@ function normalizeOfficialAccount(accountResult, limitsResult, checkedAt=new Dat
   return {
     planType:accountResult.account.planType||bucket?.planType||null,
     email:accountResult.account.email||null,
-    quota:{source:'official-app-server',checkedAt,resetCredits:typeof limitsResult?.rateLimitResetCredits?.availableCount==='number'?limitsResult.rateLimitResetCredits.availableCount:null,session:window(windows.find(w=>w.windowDurationMins===300)),weekly:window(windows.find(w=>w.windowDurationMins===10080))},
+    quota:{source:'official-app-server',limitId:bucket?.limitId??'codex',checkedAt,resetCredits:typeof limitsResult?.rateLimitResetCredits?.availableCount==='number'?limitsResult.rateLimitResetCredits.availableCount:null,session:window(windows.find(w=>w.windowDurationMins===300)),weekly:window(windows.find(w=>w.windowDurationMins===10080))},
   };
 }
 

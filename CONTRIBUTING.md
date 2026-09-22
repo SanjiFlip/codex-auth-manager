@@ -19,6 +19,8 @@ npm test
 | 界面 | `npm run demo`；检查主窗口与悬浮窗、明暗主题、长账号名称 |
 | 账号切换、IPC、凭据存储 | `npx electron scripts/smoke-electron.js` |
 | 蒸馏、记忆和知识库 | `npx electron scripts/knowledge-smoke.js` |
+| Skills、场景分组与来源 | `npx electron scripts/skills-smoke.js --limited`；打包后加 `--packaged` |
+| 蒸馏断点恢复 | `node scripts/resume-smoke.js`；打包后加 `--packaged` |
 | 额度与本地刷新 | `npx electron scripts/realtime-smoke.js` |
 | 窗口关闭与恢复 | `npx electron scripts/window-lifecycle-smoke.js` |
 | Windows 安装包 | `npm run dist`，然后 `node scripts/packaged-smoke.js` |
