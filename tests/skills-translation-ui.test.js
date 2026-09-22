@@ -14,7 +14,7 @@ function fixture(providers=['suapi']){
   const context={window:{},document,crypto,localStorage:{getItem:()=>saved,setItem:(_key,value)=>saved=value}};vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/ui/skill-translation.js'),'utf8'),context);
   const ui=context.window.createSkillTranslation({api,demo:false,toast:value=>messages.push(value),esc:value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'),onChange:()=>{}});
   function detail(text){let tools,close;const dialog={querySelector:()=>({after:value=>tools=value}),addEventListener:(_name,fn)=>close=fn};ui.attachDetail(dialog,text);return {start:()=>tools.onclick({target:{closest:selector=>selector==='[data-t-detail]'?{}:null}}),toggle:()=>tools.onclick({target:{closest:selector=>selector==='[data-t-original]'?{}:null}}),close:()=>{tools.isConnected=false;close();},get tools(){return tools;}};}
-  function intro(text){let tools,close;const dialog={querySelector:()=>({after:value=>tools=value}),addEventListener:(_name,fn)=>close=fn};ui.attachIntro(dialog,text);return {start:()=>tools.onclick({target:{closest:selector=>selector==='[data-t-intro]'?{}:null}}),close:()=>{tools.isConnected=false;close();},get tools(){return tools;}};}
+  function intro(text){let tools,close;const dialog={querySelector:()=>({after:value=>tools=value}),addEventListener:(_name,fn)=>close=fn};ui.attachIntro(dialog,text);return {start:()=>tools.onclick({target:{closest:selector=>selector==='[data-t-intro]'?{}:null}}),toggle:()=>tools.onclick({target:{closest:selector=>selector==='[data-t-intro-original]'?{}:null}}),close:()=>{tools.isConnected=false;close();},get tools(){return tools;}};}
   const batch=()=>ui.handle({target:{closest:()=>({dataset:{tAction:'batch'}})}},{querySelectorAll:()=>targets});
   const cancel=()=>ui.handle({target:{closest:()=>({dataset:{tAction:'stop'}})}},{});
   const progress=(index=0,changes={})=>({id:inputs[index].id,text:'首段中文\nRemaining original',completedSegments:1,totalSegments:2,failedSegments:0,cachedSegments:0,providers:['suapi'],complete:false,...changes});
@@ -52,7 +52,7 @@ test('closing an older detail leaves the current detail running; closing its own
   const current=f.detail('Second detail body');current.start();await tick();assert.equal(f.requests.length,2);
   oldDetail.close();assert.equal(f.requests[1].signal.aborted,false,'completed detail must not own the new request');
   current.close();await assert.rejects(f.jobs[1],/翻译已取消/);await tick();
-  assert.equal(f.cancelled.length,1);assert.equal(f.status.textContent,'已停止');assert.equal(f.messages.length,0);
+  assert.equal(f.cancelled.length,1);assert.equal(f.status.textContent,'已取消');assert.equal(f.messages.length,0);
 });
 
 test('body progress is visible before the final invoke resolves and unsubscribes afterward',async()=>{
@@ -85,7 +85,7 @@ test('a partial final result is retried rather than treated as complete renderer
 
 test('manual stop preserves partial body, marks it stopped and ignores late progress',async()=>{
   const f=fixture(),detail=f.detail('Stopped detail body');detail.start();await tick();f.emit(f.progress());f.cancel();f.emit(f.progress(0,{text:'late progress'}));await assert.rejects(f.jobs[0],/翻译已取消/);await tick();
-  assert.equal(detail.tools.querySelector('.s-t-detail-result pre').textContent,'首段中文\nRemaining original');assert.match(detail.tools.querySelector('.s-t-attribution').textContent,/已停止.*原文/);assert.equal(f.subscribers.size,0);
+  assert.equal(detail.tools.querySelector('.s-t-detail-result pre').textContent,'首段中文\nRemaining original');assert.match(detail.tools.querySelector('.s-t-attribution').textContent,/已取消.*原文/);assert.equal(f.subscribers.size,0);
 });
 
 test('rejected translation unsubscribes from progress too',async()=>{
@@ -140,4 +140,13 @@ test('preload progress subscription strips the Electron event and removes its li
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/preload.js'),'utf8'),{require:()=>electron});
   assert.equal(typeof api.onSkillsTranslationProgress,'function');const received=[],unsubscribe=api.onSkillsTranslationProgress(value=>received.push(value)),payload={id:'request',text:'partial'};
   listeners.get('skills:translation-progress')({sender:'private event'},payload);assert.deepEqual(received,[payload]);unsubscribe();assert.equal(listeners.size,0);
+});
+
+test('intro cancellation is idempotent, preserves progress and can return to original view',async()=>{
+  const f=fixture(),intro=f.intro('Cancelable introduction');intro.start();await tick();f.emit(f.progress());intro.toggle();assert.equal(intro.tools.querySelector('.s-t-intro-result').hidden,true);
+  f.emit(f.progress(0,{text:'Newest partial'}));assert.equal(intro.tools.querySelector('.s-t-intro-result').hidden,true);
+  f.cancel();f.cancel();await assert.rejects(f.jobs[0],/取消/);await tick();assert.equal(f.cancelled.length,1);assert.equal(f.status.textContent,'已取消');
+  const view=intro.tools.querySelector('.s-t-intro-result');assert.equal(view.hidden,true);assert.match(view.innerHTML,/Newest partial/);assert.match(view.innerHTML,/已取消/);
+  intro.toggle();assert.equal(view.hidden,false);assert.equal(f.inputs.length,1,'restoring translated view does not send another request');
+  intro.start();await tick();assert.equal(f.inputs.length,2);f.requests[1].finish();await f.jobs[1];await tick();assert.equal(view.hidden,false);assert.match(view.innerHTML,/中文译文/);
 });

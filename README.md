@@ -1,16 +1,18 @@
 # Codex Auth Manager
 
 [![构建检查](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)
-[![版本 v0.6.4](https://img.shields.io/badge/version-0.6.4-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.4)
+[![版本 v0.6.5](https://img.shields.io/badge/version-0.6.5-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.5)
 [![许可证 MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，采用中性灰与系统蓝主题，提供 Codex Meter 悬浮窗、蒸馏工作台与本地记忆库。
 
-> 非 OpenAI 官方产品。当前 v0.6.4 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
+> 非 OpenAI 官方产品。当前 v0.6.5 为预览版（待发布）；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
-## v0.6.4 · 技能简介独立翻译
+## v0.6.5 · 翻译取消与译文显示
 
-技能库的详情窗口，以及商店的「查看与安装」预览，在正文上方新增「翻译简介」。开启可选翻译后，点击即可只翻译技能简介；「翻译正文」仍是独立操作。打开详情或保存翻译设置不会自动发送文本，没有简介时不显示此入口。本地卡片原有的名称与说明翻译保持不变。
+翻译时可点击「取消翻译」，保留已完成内容；取消期间禁止重复提交。简介增加「隐藏译文 / 显示译文」，切换显示不会调用 API。
+
+技能库详情和商店「查看与安装」预览继续提供独立的「翻译简介」。开启可选翻译后，点击即可只翻译技能简介；「翻译正文」仍是独立操作。打开详情或保存翻译设置不会自动发送文本，没有简介时不显示此入口。本地卡片原有的名称与说明翻译保持不变。
 
 简介翻译使用已勾选的服务，并复用进度、停止和内存缓存；原文与技能文件保持不变。翻译总开关关闭时不显示简介翻译入口。[使用方式与数据边界](docs/SKILLS.md#可选中文翻译)。
 
@@ -76,23 +78,23 @@ Windows EXE 和两种 macOS 架构的 DMG / ZIP 提供一致的工作空间与�
 
 ## 下载安装包
 
-当前版本：**v0.6.4 预览版**。请按操作系统和处理器选择安装包。
+准备发布：**v0.6.5 预览版**。请按操作系统和处理器选择安装包。
 
 | 平台 | 系统要求 | 安装包 |
 | --- | --- | --- |
-| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.4/Codex-Auth-Manager-Setup-0.6.4-x64.exe) |
-| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.4/Codex-Auth-Manager-0.6.4-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.4/Codex-Auth-Manager-0.6.4-arm64.zip) |
-| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.4/Codex-Auth-Manager-0.6.4-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.4/Codex-Auth-Manager-0.6.4-x64.zip) |
+| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-Setup-0.6.5-x64.exe) |
+| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-0.6.5-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-0.6.5-arm64.zip) |
+| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-0.6.5-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-0.6.5-x64.zip) |
 
-[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.4) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.4/SHA256SUMS-0.6.4.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
+[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.5) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/SHA256SUMS-0.6.5.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
 
 Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple Developer ID 签名和公证。Mac 下载后把应用拖到 Applications；若被 Gatekeeper 拦截，请在确认下载来源后使用系统「隐私与安全性」中的打开选项，不要关闭系统安全保护。
 
 更新前从托盘或 macOS 菜单栏完全退出旧版管理工具。Windows 运行安装程序并选择原安装目录；Mac 将新版应用替换到 Applications。跨设备迁移请使用加密导出 / 导入，不要直接复制账户库。
 
-## 最新更新 · v0.6.4
+## 最新更新 · v0.6.5
 
-本版在技能详情与商店预览中增加独立的「翻译简介」入口，只翻译当前简介，正文仍按需单独翻译。此前的服务队列、渐进显示、缓存、手动更新检查和用量 CSV 导出继续保留。详见 [更新日志](CHANGELOG.md) 和 [翻译使用说明](docs/SKILLS.md#可选中文翻译)。
+本版完善「取消翻译」操作，并为简介增加「隐藏译文 / 显示译文」，保留已完成内容，切换显示不重复请求。此前的服务队列、渐进显示、缓存、手动更新检查和用量 CSV 导出继续保留。详见 [更新日志](CHANGELOG.md) 和 [翻译使用说明](docs/SKILLS.md#可选中文翻译)。
 
 各版本 Windows 与 macOS 构建及打包检查结果见 [验证记录](docs/VALIDATION.md) 和 [GitHub Actions](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)。测试使用隔离账户库、合成凭据与模型返回，不等于真实账号在线身份验收。详见 [更新日志](CHANGELOG.md) 和 [验证记录](docs/VALIDATION.md)。
 
@@ -151,7 +153,7 @@ npm start
 - 演示：`npm run demo`，使用独立演示数据，没有真实账号 IPC。
 - Windows 构建：`npm run dist`，输出到 `release/`。
 - macOS 构建：在 Mac 上运行 `npm run dist:mac`，生成 arm64 / x64 的 DMG 与 ZIP。
-- 安装：构建后运行 `release/Codex Auth Manager Setup 0.6.4.exe`；更新时先退出旧版管理工具，再选择原安装目录。
+- 安装：构建后运行 `release/Codex Auth Manager Setup 0.6.5.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
