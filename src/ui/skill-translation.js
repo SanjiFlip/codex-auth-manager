@@ -1,6 +1,6 @@
 'use strict';
 window.createSkillTranslation=({api,demo,toast,esc,onChange})=>{
-  const names={suapi:'速API',mymemory:'MyMemory'},results=new Map();let running=false,stopped=false,requestId=null;
+  const names={suapi:'速API',mymemory:'MyMemory'},results=new Map();let running=false,stopped=false,requestId=null,activeDetail=null;
   let config={enabled:false,providers:['suapi','mymemory']};
   try{const saved=JSON.parse(localStorage.getItem('cam-skills-translation')||'null');if(saved&&typeof saved.enabled==='boolean'&&Array.isArray(saved.providers)){const providers=saved.providers.filter(id=>names[id]);if(providers.length)config={enabled:saved.enabled,providers};}}catch{}
   const content=text=>{const r=results.get(text);return r?`<p class="s-translated-text">${esc(r.text)}</p><small>${esc(r.providers.map(id=>names[id]).join(' / ')||(r.complete?'原文无需翻译':'暂不可用'))}${r.complete?' · 机器翻译':' · 部分失败，保留原文'}</small>`:'';};
@@ -16,14 +16,14 @@ window.createSkillTranslation=({api,demo,toast,esc,onChange})=>{
   }
   async function run(texts,detail){
     if(!config.enabled)return toast('请先在“翻译设置”中开启可选翻译。');if(demo)return toast('演示模式不调用在线翻译。');if(running)return toast('已有翻译任务，可停止后重试。');
-    running=true;stopped=false;let completed=0,partial=0;
+    running=true;stopped=false;activeDetail=detail||null;let completed=0,partial=0;
     try{for(const text of texts){if(stopped)break;requestId=crypto.randomUUID();status(`翻译 ${completed+1} / ${texts.length}…`);
         const result=await api.skillsTranslate({id:requestId,text,providers:[...config.providers]});if(stopped)break;
         if(results.size>=100)results.delete(results.keys().next().value);results.set(text,result);if(!result.complete)partial++;completed++;refresh();
         if(detail?.isConnected){detail.querySelector('.s-t-detail-result pre').textContent=result.text;detail.querySelector('.s-t-detail-result').hidden=false;detail.querySelector('.s-t-attribution').textContent=(result.providers.map(id=>names[id]).join(' / ')||(result.complete?'原文无需翻译':'暂不可用'))+(result.complete?' · 机器翻译，仅供阅读':' · 部分失败，相应段落保留原文');}
         if(!result.complete&&!result.providers.length)break;
       }}catch(e){if(!stopped)toast(String(e.message||e).replace(/^Error invoking remote method '[^']+': (?:Error: )?/,''));}
-    finally{running=false;requestId=null;status(stopped?'已停止':partial?'服务暂不可用，未翻译部分保留原文':completed?`已翻译 ${completed} 项`:'');}
+    finally{running=false;requestId=null;activeDetail=null;status(stopped?'已停止':partial?'服务暂不可用，未翻译部分保留原文':completed?`已翻译 ${completed} 项`:'');}
   }
   function handle(event,root){const button=event.target.closest('[data-t-action]');if(!button)return false;const action=button.dataset.tAction;
     if(action==='settings')settings();if(action==='stop')stop();
@@ -33,7 +33,7 @@ window.createSkillTranslation=({api,demo,toast,esc,onChange})=>{
   }
   function attachDetail(el,text){
     const tools=document.createElement('div');tools.className='s-translation-detail';tools.innerHTML=`<div class="s-translation-toolbar"><button class="btn" data-t-detail>翻译正文</button><button class="btn" data-t-original>隐藏译文</button><button class="btn s-t-stop" data-t-action="stop" hidden>停止翻译</button><span class="s-t-status" role="status"></span></div><p class="help-text">原文保留在上方。仅翻译当前正文，代码块、行内代码和链接保留；单次最多 60000 字符。</p><div class="s-t-detail-result" hidden><small class="s-t-attribution"></small><div class="s-preview"><pre></pre></div></div>`;
-    el.querySelector('.s-preview').after(tools);tools.onclick=e=>{if(e.target.closest('[data-t-detail]'))void run([text],tools);else if(e.target.closest('[data-t-original]'))tools.querySelector('.s-t-detail-result').hidden=!tools.querySelector('.s-t-detail-result').hidden;else handle(e,tools);};el.addEventListener('close',()=>{if(running&&tools.querySelector('.s-t-detail-result'))stop()},{once:true});
+    el.querySelector('.s-preview').after(tools);tools.onclick=e=>{if(e.target.closest('[data-t-detail]'))void run([text],tools);else if(e.target.closest('[data-t-original]'))tools.querySelector('.s-t-detail-result').hidden=!tools.querySelector('.s-t-detail-result').hidden;else handle(e,tools);};el.addEventListener('close',()=>{if(running&&activeDetail===tools)stop()},{once:true});
   }
   return {controls,card,handle,attachDetail};
 };

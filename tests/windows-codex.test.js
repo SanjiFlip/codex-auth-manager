@@ -32,5 +32,5 @@ $global:other | Add-Member ScriptMethod Kill { throw 'Unrelated process was targ
 function Get-Process { if($global:alive){$global:target}; $global:other }
 & '${script}' -Mode force-stop
 `);
- try{const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',wrapper],{encoding:'utf8',windowsHide:true,timeout:25000});assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/target-ended/);}finally{fs.rmSync(dir,{recursive:true,force:true});}
+ try{const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',wrapper],{encoding:'utf8',windowsHide:true,timeout:25000});assert.ifError(result.error);assert.equal(result.status,0,`signal=${result.signal}; stdout=${result.stdout}; stderr=${result.stderr}`);assert.match(result.stdout,/target-ended/);}finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
