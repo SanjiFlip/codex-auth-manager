@@ -377,3 +377,14 @@ a6290b6e57f24673d8ef053b8492cdebf08287daaa47c1fe42617562f0b1333b  Codex-Auth-Man
 - 原有翻译性能夹具在三个 CI 平台继续通过：25 段正文含 20 段唯一文本，共 20 个请求，峰值 2 个请求，完整缓存再次点击新增 0 个请求；此为合成网络测试，不代表免费服务的线上速度。
 - 两种 Mac 的最终 ASAR 各 75 个源码、资源与许可证文件逐字节匹配构建 Git 提交，package.json 运行字段一致；Windows 对照本地构建文件也一致。DMG / ZIP 来自上述同一次 CI；标签 `v0.6.4` 指向已测试构建提交。
 - [v0.6.4 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.4) 已公开发布为预览版，包含 Windows EXE、arm64 / x64 DMG 与 ZIP，以及 `SHA256SUMS-0.6.4.txt`。6 个资产的 GitHub SHA-256 摘要及大小均匹配本地文件，匿名下载 HEAD 全部返回 200。
+
+## v0.6.5 翻译取消与译文显示（2026-09-22）
+
+- 运行中的列表、简介及正文翻译统一提供「取消翻译」，取消期间禁止重复提交；保留已完成译文并允许重试。简介的隐藏 / 显示操作不发送新请求，隐藏状态不会被后续进度覆盖。
+- Windows 语法检查通过，153 项测试中 152 通过 / 1 项 Mac 专用跳过；18 项翻译界面测试覆盖重复取消、部分内容保留、重新翻译及隐藏状态。真实 Electron 源码和打包 Skills 检查通过，使用合成挂起请求验证取消、保留内容与重试；日志中的「翻译已取消」为预期取消结果。
+- Windows 实际 EXE 启动、隔离库、IPC / DPAPI、悬浮窗与额度防回跳检查通过。ASAR 的 75 个源码、资源与许可证文件逐字节匹配本地构建源码，package.json 运行字段一致。
+- EXE SHA-256：`3e0b9144bc34c59b0b7b192f4211c2000bfca08ba33f481ad24efe1d085e7727`。检查使用隔离合成数据，未覆盖已安装应用或改动真实账号与技能。
+- [GitHub Actions 35721421638](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35721421638) 三平台全部成功，构建提交为 `a23898d3d2e07a9bd96a3f4b6ff606d67cd24509`。每个平台均执行 153 项测试：Windows 152 通过 / 1 项平台跳过，两种 Mac 各 149 通过 / 4 项平台跳过，无失败。
+- macOS arm64 / x64 均完成源码与打包 Skills 的实际取消、保留内容、重试及隐藏 / 显示检查，并通过原生启动、Keychain、悬浮窗、知识、恢复与设置检查。
+- 两种 Mac 最终 ASAR 各 75 个源码、资源与许可证文件逐字节匹配构建提交，package.json 运行字段一致。DMG / ZIP 均来自该次 CI；标签 `v0.6.5` 指向已测试提交。
+- [v0.6.5 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.5) 已公开发布为预览版，包含 EXE、arm64 / x64 DMG 与 ZIP，以及 `SHA256SUMS-0.6.5.txt`。6 个资产的 GitHub SHA-256 摘要及大小均匹配本地文件，匿名下载 HEAD 全部返回 200。
