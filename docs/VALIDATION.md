@@ -319,8 +319,20 @@ a6290b6e57f24673d8ef053b8492cdebf08287daaa47c1fe42617562f0b1333b  Codex-Auth-Man
 - 独立审查发现一项 P2：导出接收到已经补零的统计结果，无法兑现未知子项留空。已增加解析与聚合层字段可用性元数据，以及临时原始日志→解析→聚合→CSV 的链路检查；保留原有 tokenUsage 数值算法、额度计算和事件键。
 - 安装包最终核对与 macOS CI 结果在本节后续发布记录中补充；以上不把尚未完成的构建称为已发布。
 - P2 复核通过：12 项定向测试全部成功，44 条合成事件在正常 / 分叉会话、3 个聚合窗口、2 个额度窗口中与原基线差分一致（忽略新增元数据及检查时间）；统计与额度数值未改变。独立审查未发现其他重要问题。
-- Windows 最终 ASAR 中 75 个源码 / 资源 / 许可证文件与工作区构建源码一致，package.json 运行字段一致。实际 EXE 启动、隔离凭据、原生 Meter、额度回跳回归及打包后的 Skills / 更新检查 / CSV 流程通过。
-- Windows EXE SHA-256：`e3ea93e3d03987772b5a1fd51732e9eb2eba053c07e9fabe1cacb52027314fb9`。
+- 首轮 Windows ASAR 中 75 个源码 / 资源 / 许可证文件与当时工作区源码一致，package.json 运行字段一致。实际 EXE 启动、隔离凭据、原生 Meter、额度回跳回归及打包后的 Skills / 更新检查 / CSV 流程通过。
+- 首轮 Windows EXE SHA-256：`e3ea93e3d03987772b5a1fd51732e9eb2eba053c07e9fabe1cacb52027314fb9`。这是翻译竞态修复前的历史构建，未作为本版发布资产；最终摘要见下方发布核对。
 - 首轮 CI `35695931103`：Windows 原有 PowerShell 测试在 25 秒超时后失败；原提交不改逻辑、不加超时重新执行后通过，后续仅补充子进程错误诊断。Intel Mac 则暴露实际产品竞态：旧详情 close 回调误取消新开始的列表翻译。
 - 对翻译竞态以受控顺序复现：挂起列表首请求，再释放旧详情的 close 事件。修复前稳定失败，新增详情任务归属后同用例通过；关闭当前详情仍会取消自己的任务，未扩大超时或加入重试。独立复核通过；最新 Windows 单元测试 128 项、127 通过、1 项 Mac 专用跳过。
 - 下一轮 CI 的 Windows 同一原生测试再次触发 `spawnSync powershell.exe ETIMEDOUT`。改为独立测量旧 PowerShell 宿主 / 内置命令初始化（最多 60 秒），收到就绪行后才发送隔离 fixture，脚本操作仍限制 25 秒；退出码、目标终止和无关进程保护断言保持不变。仅调整测试宿主，不改生产退出流程；本地启动 187 ms、操作 81 ms，云端阶段结果待确认。
+
+### v0.6.2 最终构建与发布核对
+
+- [GitHub Actions 35697138884](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35697138884) 的 Windows check、macOS 14 arm64、macOS 15 Intel x64 全部成功。构建源码与标签 `v0.6.2` 指向 `47072fbae7b464bc6a8636e227be862df067a554`。
+- Windows 128 项测试中 127 通过、1 项 Mac 专用跳过；两种 Mac 各 124 通过、4 项按平台跳过，均无失败。Windows 云端本次记录初始化 7157 ms、实际 fixture 1260 ms；该次分阶段测量通过，不能据此追溯认定前两次超时的具体阶段。
+- 两种 Mac 均通过源码与打包后的窗口、知识工作流、断点恢复、Skills、更新检查及 CSV 检查，完成原生程序 / Keychain / Meter 检查与 DMG、ZIP 构建。数据、模型及认证均为隔离夹具。
+- Windows 包已包含 `49ad3a6` 翻译竞态修复，重新构建后的 Skills 受控竞态与限流检查、更新检查 / CSV 导出检查通过。此后 `47072fb` 仅修改测试和验证文档，未改应用代码或资源。
+- Windows 和两种 Mac 的最终 ASAR 各 75 个源码、资源与许可证文件匹配构建源码，package.json 的版本、入口及运行依赖一致。Mac 逐字节比较使用构建 Git 提交，Windows 使用本地构建文件。
+- 最终 Windows EXE SHA-256：`dd929097de1685e953ffc60abfa17bfd3d4ead01b6c92f486343e35b3be9326c`。5 个发布安装 / 压缩文件的摘要收录在 `SHA256SUMS-0.6.2.txt`；前述 `e3ea93e3…` 历史构建不用于发布。
+- 未替换用户正在运行的应用、改动真实账号或技能配置；上述验证不包含真实账号登录切换，也不证明真实蒸馏结果的事实准确性。
+- [v0.6.2 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.2) 已公开发布为预览版。6 个资产（EXE、两种架构的 DMG / ZIP、校验文件）的 GitHub 摘要及字节数与本地逐一一致，匿名下载 HEAD 均返回 200。
+- 发布后更新查询的真实匿名 API 请求遇到 GitHub 限流，应用正确返回稍后重试提示，本次不宣称该网络路径成功。通过 GitHub CLI 读取实际发布元数据后，验证旧版 0.6.1 对 0.6.2 的版本比较和 Windows / Apple Silicon / Intel 下载映射均正确；该检查不复用 CLI 凭据到应用。用户遇到限流时可直接访问 Release 页面下载。
