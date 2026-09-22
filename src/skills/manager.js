@@ -3,8 +3,9 @@ const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('n
 const {inventory,key,normalize,atomic,readJson}=require('./files');
 const {readConfig,enabledFor,writeSkillConfig}=require('./config');
 const {createMarketplace,repository,reference}=require('./github');
-function createSkillsManager({root,home,userHome,bank=path.join(userHome,'.skillshub'),writeConfig=writeSkillConfig,fetcher,encrypt,decrypt}){
+function createSkillsManager({root,home,userHome,bank=path.join(userHome,'.skillshub'),writeConfig=writeSkillConfig,fetcher,encrypt,decrypt,translationFetcher}){
   const file=path.join(root,'library.json'),codexSkills=path.join(home,'skills'),agentSkills=path.join(userHome,'.agents','skills');
+  const translator=require('./translation').createTranslator({fetcher:translationFetcher});
   const tokens=require('./token-store').createTokenStore({root,encrypt,decrypt});
   const market=createMarketplace({root:path.join(root,'market'),fetcher,getToken:tokens.read});let queue=Promise.resolve();const plans=new Map();
   const initial=()=>({version:1,revision:0,groups:[{id:'common',name:'通用基础',skillIds:[]},{id:'daily',name:'日常',skillIds:[]},{id:'research',name:'科研',skillIds:[]}],activeGroupIds:[],managedIds:[],installed:[],history:[],customSources:[]});
@@ -53,6 +54,6 @@ function createSkillsManager({root,home,userHome,bank=path.join(userHome,'.skill
     s.activeGroupIds=p.ids;s.managedIds=[...new Set([...s.managedIds,...p.changes.map(c=>c.id)])];s.history.unshift({at:new Date().toISOString(),text:'配置已切换到 '+(s.groups.filter(g=>p.ids.includes(g.id)).map(g=>g.name).join(' + ')||'停用所有分组')});s.history=s.history.slice(0,50);s.pendingRestart=true;
     try{await save(s)}catch{throw Error('Codex 配置已写入，但分组记录保存失败。请刷新核对实际启用状态。');}plans.delete(input.token);return scan();});}
   async function detail(id){const s=await scan(),item=s.items.find(i=>i.id===id);if(!item)throw Error('技能不存在，请刷新。');return {...item,body:await fs.readFile(item.file,'utf8')};}
-  return {list:async()=>{await queue;return scan()},catalog:market.catalog,preview:market.preview,saveToken:input=>exclusive(async()=>{await tokens.save(input?.value);return scan()}),removeToken:()=>exclusive(async()=>{await tokens.remove();return scan()}),install,saveGroup,removeGroup,saveSource,removeSource,plan,apply,detail};
+  return {translate:translator.translate,cancelTranslation:translator.cancel,list:async()=>{await queue;return scan()},catalog:market.catalog,preview:market.preview,saveToken:input=>exclusive(async()=>{await tokens.save(input?.value);return scan()}),removeToken:()=>exclusive(async()=>{await tokens.remove();return scan()}),install,saveGroup,removeGroup,saveSource,removeSource,plan,apply,detail};
 }
 module.exports={createSkillsManager};

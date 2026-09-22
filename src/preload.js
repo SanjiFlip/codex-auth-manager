@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("codexAuth", {
+  skillsTranslate:input=>ipcRenderer.invoke('skills:translate',input),
+  skillsCancelTranslation:input=>ipcRenderer.invoke('skills:cancelTranslation',input),
   skillsSaveToken:input=>ipcRenderer.invoke('skills:saveToken',input),
   skillsRemoveToken:()=>ipcRenderer.invoke('skills:removeToken'),
   skillsList:input=>ipcRenderer.invoke('skills:list',input),
