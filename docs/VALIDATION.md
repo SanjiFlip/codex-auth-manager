@@ -276,4 +276,7 @@ a6290b6e57f24673d8ef053b8492cdebf08287daaa47c1fe42617562f0b1333b  Codex-Auth-Man
 - 版本、界面页脚、README 下载名称、更新日志、安全说明和开发检查文档统一为 v0.6.0；保留上游许可及独立实现说明。
 - Token 回归覆盖加密落盘、重新实例化读取、替换 / 删除、损坏文件、加密不可用、匿名冷却隔离、请求域名与重定向限制、无效 Token 和私有仓库拒绝。未使用真实 GitHub Token 测试应用功能。
 - Windows 源码的设计检查（9 页、深浅主题及窄窗口）、跨窗口实时额度、知识工作流、两进程断点恢复及 Skills 含 Token 的真实 IPC / DPAPI 检查通过，输入均为隔离合成数据。
-- Mac 产物与发布校验待 GitHub Actions 完成后记录于 Release；此处不将排队或运行中的任务视为成功。
+- [GitHub Actions 35684649381](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35684649381) 已完成且全部成功：Windows check、macOS 14 arm64、macOS 15 Intel x64。产物对应源码提交 `fbbdedba5c53bc63d0bbab77191039bbce075adc`。
+- 两种 Mac 均通过原生窗口、Keychain、知识 / Skills 含 Token / 断点恢复 / 设计检查、DMG 与 ZIP 构建和实际打包应用检查；没有使用真实账号或模型请求。
+- Windows `npm test` 为 89 项：88 通过、1 项 Mac 专用检查跳过。最终 EXE 的 Skills Token、额度默认零值回跳及两进程断点继续验证通过；71 个源码 / 资源 / 许可证文件与 ASAR 一致。
+- 本地发布 EXE SHA-256：`1387de183e77cacc3c718263ba33a9cf06762451e8349b6b66d8111113f92aad`。全部平台发布文件、来源构建和摘要见 [v0.6.0 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.0) 的校验文件。
