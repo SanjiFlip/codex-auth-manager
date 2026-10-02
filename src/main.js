@@ -1041,6 +1041,7 @@ async function currentState() {
       email: auth.identity.email,
       userId: auth.identity.userId,
       subject: auth.identity.subject,
+      planType: auth.identity.planType,
       fingerprint: fingerprint(auth.content),
       ...authTokenStatus(auth.parsed),
     };
@@ -1357,22 +1358,17 @@ async function syncCurrentAuthToStoredAccount() {
 
   return mutateIndex(async (index) => {
     if (switchInProgress) return { value: false, write: false };
-    let account = index.accounts.find((item) => identityKey(item.identity ?? {}) === currentKey);
-    let isNewAccount = false;
+    const account = index.accounts.find((item) => identityKey(item.identity ?? {}) === currentKey);
     const now = new Date().toISOString();
     if (!account) {
-      if ((index.deletedIdentityKeys ?? []).includes(currentKey)) {
-        return { value: false, write: false };
-      }
-      account = createAccountRecord(current, safeAccountName("", current.identity), now);
-      account.autoImportedAt = now;
-      index.accounts.push(account);
-      isNewAccount = true;
+      const changed = index.activeAccountId !== null;
+      index.activeAccountId = null;
+      return { value: changed, write: changed };
     }
 
     const nextFingerprint = fingerprint(current.content);
     const nextLastRefresh = authLastRefresh(current.parsed);
-    if (!isNewAccount && account.authFingerprint === nextFingerprint && account.lastRefresh === nextLastRefresh) {
+    if (account.authFingerprint === nextFingerprint && account.lastRefresh === nextLastRefresh) {
       if (account.needsReauth === true) {
         markAccountAuthSnapshot(account, current, current.content, now);
         account.lastSyncedAt = now;
@@ -1445,15 +1441,24 @@ function scheduleReauthCheck(accountId, expectedFingerprint, expectedLastRefresh
   reauthCheckTimers.set(accountId, timer);
 }
 
+let observedAuthFingerprint;
 function scheduleAuthSync() {
   if (authSyncTimer) clearTimeout(authSyncTimer);
   authSyncTimer = setTimeout(async () => {
     authSyncTimer = null;
+    if (switchInProgress) return;
+    let changed = false;
     try {
-      const changed = await syncCurrentAuthToStoredAccount();
-      if (changed) broadcastStateChanged();
+      changed = await syncCurrentAuthToStoredAccount();
     } catch {
       // The auth file can be temporarily missing or half-written while Codex updates it.
+    }
+    if (switchInProgress) return;
+    // Unsaved and removed logins still change the displayed current identity.
+    const observed = await fs.readFile(authPath(), 'utf8').then(fingerprint, () => null);
+    if (changed || observed !== observedAuthFingerprint) {
+      observedAuthFingerprint = observed;
+      broadcastStateChanged();
     }
   }, 500);
 }
@@ -1617,10 +1622,12 @@ async function switchAccountLocked(accountId, options = {}) {
           const current = { ...validateAuthJson(raw), content: raw };
           const key = identityKey(current.identity);
           const now = new Date().toISOString();
-          let account = index.accounts.find(item => identityKey(item.identity) === key);
+          const account = index.accounts.find(item => identityKey(item.identity) === key);
           if (!account) {
-            account = createAccountRecord(current, safeAccountName('', current.identity), now);
-            index.accounts.push(account);
+            // The encrypted before-switch backup already preserves this login for rollback.
+            // Switching must not save an unsolicited account or resurrect a deleted one.
+            index.activeAccountId = null;
+            return;
           }
           // Saving rotated tokens is mandatory, even if the index's active id is stale.
           await saveAccountAuth(account.id, raw);

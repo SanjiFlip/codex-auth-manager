@@ -28,6 +28,9 @@ async function until(test,label){for(let i=0;i<100;i++){if(await test())return;a
 (async()=>{
   let main,meter;
   await until(()=>{main=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('manager.html'));return main&&!main.webContents.isLoading()},'main startup');
+  await sleep(1200);
+  const initial=await evaluate(main,'window.codexAuth.getState()');
+  assert.equal(initial.accounts.length,0,'Watching an unsaved login must not silently add an account');
   const save=async(name,content)=>{fs.writeFileSync(authPath,content);const state=await evaluate(main,`window.codexAuth.importCurrent(${JSON.stringify(name)})`);return state.accounts.find(a=>a.isActive).id};
   const a=await save('First account',first),b=await save('Second account',second),c=await save('Other workspace',otherWorkspace);
   assert.equal(new Set([a,b,c]).size,3,'People in one workspace and workspaces of one person stay distinct');
@@ -36,6 +39,10 @@ async function until(test,label){for(let i=0;i<100;i++){if(await test())return;a
   await until(()=>{meter=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('meter.html'));return meter&&!meter.webContents.isLoading()},'meter startup');
   const selected=()=>evaluate(meter,'document.querySelector("#selected-name").textContent');
   await until(async()=>await selected()==='First account','initial current account');
+  const rotated=JSON.parse(first);rotated.tokens.refresh_token='SYNTHETIC-ROTATED';rotated.last_refresh=new Date().toISOString();
+  fs.writeFileSync(authPath,JSON.stringify(rotated));
+  await until(async()=>{const state=await evaluate(main,'window.codexAuth.getState()');return state.accounts.find(account=>account.id===a)?.refreshTokenRotatedAt},'saved account refresh synchronizes');
+  assert.equal((await evaluate(main,'window.codexAuth.getState()')).accounts.length,3,'Refreshing a saved credential must not add an account');
   await evaluate(main,`window.codexAuth.switchAccount(${JSON.stringify(b)})`);
   await until(async()=>await evaluate(meter,`state.accounts.find(a=>a.isActive)?.id===${JSON.stringify(b)}`),'meter receives switched state');
   assert.equal(await selected(),'Second account','Main-window switch must update the meter identity together with its quota');
@@ -67,6 +74,33 @@ async function until(test,label){for(let i=0;i<100;i++){if(await test())return;a
   await until(async()=>await evaluate(meter,`!busy&&state.accounts.find(a=>a.isActive)?.id===${JSON.stringify(c)}`),'rollback state arrives');
   assert.equal(await selected(),'Other workspace');assert.equal(fs.readFileSync(authPath,'utf8'),otherWorkspace);
   console.log('PASS: failed launch restores the displayed identity and credential file');
+  await evaluate(main,`window.codexAuth.deleteAccount(${JSON.stringify(c)})`);
+  await evaluate(main,`window.codexAuth.switchAccount(${JSON.stringify(b)})`);
+  const afterDelete=await evaluate(main,'window.codexAuth.getState()');
+  assert.equal(afterDelete.accounts.length,2,'Switching away from a deleted current login must not recreate it');
+  fs.writeFileSync(authPath,credentials('unsaved','unsaved-workspace'));
+  await sleep(1200);
+  const unsaved=await evaluate(main,'window.codexAuth.getState()');
+  assert.equal(unsaved.accounts.length,2,'External login must not create an unsolicited account');
+  assert.equal(unsaved.accounts.filter(account=>account.isActive).length,0);
+  await until(()=>evaluate(main,'document.querySelector(".active-panel").textContent.includes("unsaved@example.invalid")'),'main displays unsaved current login');
+  await until(async()=>await selected()==='unsaved@example.invalid','meter displays unsaved current login');
+  assert.equal(await evaluate(meter,'document.querySelector("#selection-state").textContent'),'当前账号 · 未保存');
+  assert.equal(await evaluate(meter,'document.querySelector("#switch-btn").disabled'),true);
+  assert.equal(await evaluate(meter,'document.querySelector("#session").textContent'),'—');
+  if(!packaged){
+    const screenshots=path.join(__dirname,'../output/account-display');fs.mkdirSync(screenshots,{recursive:true});
+    fs.writeFileSync(path.join(screenshots,'unsaved-meter.png'),(await meter.webContents.capturePage()).toPNG());
+    fs.writeFileSync(path.join(screenshots,'unsaved-main.png'),(await main.webContents.capturePage()).toPNG());
+  }
+  console.log('PASS: watching, switching and deleted-account handling never add unsolicited accounts; unsaved identity is displayed');
+  const saved=await evaluate(main,'window.codexAuth.importCurrent("Saved explicitly")');
+  assert.equal(saved.accounts.length,3,'Explicit save adds exactly the requested account');
+  const savedId=saved.accounts.find(account=>account.isActive).id;
+  const repeated=await evaluate(main,'window.codexAuth.importCurrent("Saved explicitly")');
+  assert.equal(repeated.accounts.length,3,'Saving the same login again updates its existing record');
+  assert.equal(repeated.accounts.find(account=>account.isActive).id,savedId);
+  await until(async()=>await selected()==='Saved explicitly','explicit save replaces the provisional current identity');
   fs.writeFileSync(authPath,'{}');
   const invalid=await evaluate(main,'window.codexAuth.getAllAccountsQuota()');
   assert.equal(invalid.accounts.filter(account=>account.isActive).length,0,'Unreadable identity must not fall back to a saved account');

@@ -4,14 +4,19 @@ const api=window.codexAuth,$=s=>document.querySelector(s),stats=window.UsageStat
 let state={accounts:[]},usage=null,busy=false,loading=false,loadEpoch=0,selectedId=null,renderedCurrentId=null,pendingTargetId=null,loadPending=false,messageTimer;
 const demoData={settings:{},accounts:[{id:'a',displayName:'日常工作',planType:'pro',isActive:true,quotaSnapshot:{session:{usedPercent:21,resetsAt:new Date(Date.now()+16860000).toISOString()},weekly:{usedPercent:3,resetsAt:new Date(Date.now()+600000000).toISOString()},resetCredits:1,checkedAt:new Date().toISOString()}},{id:'b',displayName:'研究与探索',planType:'prolite',isActive:false,quotaSnapshot:{weekly:{usedPercent:32,resetsAt:new Date(Date.now()+380000000).toISOString()},resetCredits:0,checkedAt:new Date().toISOString()}},{id:'c',displayName:'创作空间',planType:'plus',isActive:false,quotaSnapshot:{session:{usedPercent:38,resetsAt:new Date(Date.now()+7200000).toISOString()},weekly:{usedPercent:48,resetsAt:new Date(Date.now()+250000000).toISOString()},checkedAt:new Date().toISOString()}}]};
 function notify(message){clearTimeout(messageTimer);$('#message').textContent=message;$('#message').hidden=!message;if(message)messageTimer=setTimeout(()=>{$('#message').hidden=true},6500)}
-function currentAccount(){return state.accounts.find(a=>a.isActive)}
-function setBusy(value){if(value)loadEpoch++;busy=value;$('#account-trigger').disabled=value||!state.accounts.length;$('#refresh-btn').disabled=value;updateSelection()}
+function currentAccount(){
+  const saved=state.accounts.find(a=>a.isActive);if(saved)return saved;
+  const current=state.current;
+  if(current?.exists&&!current.error&&(current.email||current.userId||current.subject))return {id:'current-unsaved',displayName:current.email||current.userId||current.subject,planType:current.planType,isActive:true,isUnsaved:true};
+}
+function selectableAccounts(){const current=currentAccount();return current?.isUnsaved?[current,...state.accounts]:state.accounts}
+function setBusy(value){if(value)loadEpoch++;busy=value;$('#account-trigger').disabled=value||!selectableAccounts().length;$('#refresh-btn').disabled=value;updateSelection()}
 function updateSelection(){
-  const account=state.accounts.find(a=>a.id===selectedId);
+  const account=selectableAccounts().find(a=>a.id===selectedId);
   $('#selected-name').textContent=account?.displayName||'暂无账号';$('#selected-name').title=account?.displayName||'';
   $('#selected-plan').textContent=account?window.planLabel(account.planType):'在主界面添加账号';
   $('#selected-avatar').textContent=(account?.displayName||'C').slice(0,1);
-  $('#selection-state').textContent=account?.isActive?'当前账号':account?'待切换':'尚未添加';
+  $('#selection-state').textContent=account?.isUnsaved?'当前账号 · 未保存':account?.isActive?'当前账号':account?'待切换':'尚未添加';
   $('#switch-btn').disabled=busy||!account||account.isActive;
   $('#switch-btn').textContent=busy?'正在处理…':account?.isActive?'正在使用此账号':'切换并重启 Codex';
   $('#account-trigger').disabled=busy||!account;
@@ -19,16 +24,16 @@ function updateSelection(){
 function closeMenu(focus=false){$('#account-menu').hidden=true;$('#account-trigger').setAttribute('aria-expanded','false');if(focus)$('#account-trigger').focus()}
 function renderOptions(){
   const list=$('#account-options');list.replaceChildren();
-  for(const account of state.accounts){
+  for(const account of selectableAccounts()){
     const option=document.createElement('button');option.type='button';option.className='account-option';option.setAttribute('role','option');option.setAttribute('aria-selected',String(account.id===selectedId));option.dataset.id=account.id;option.tabIndex=-1;
     const avatar=document.createElement('span');avatar.className='account-avatar';avatar.textContent=(account.displayName||'C').slice(0,1);
     const copy=document.createElement('span');copy.className='option-copy';const name=document.createElement('span');name.className='option-name';name.textContent=account.displayName;name.title=account.displayName;
-    const detail=document.createElement('span');detail.className='option-detail';detail.textContent=window.planLabel(account.planType)+(account.isActive?' · 当前使用':' · 已保存');copy.append(name,detail);
+    const detail=document.createElement('span');detail.className='option-detail';detail.textContent=window.planLabel(account.planType)+(account.isUnsaved?' · 当前登录，未保存':account.isActive?' · 当前使用':' · 已保存');copy.append(name,detail);
     const check=document.createElement('span');check.className='option-check';check.setAttribute('aria-hidden','true');check.textContent=account.id===selectedId?'✓':'';
     option.append(avatar,copy,check);option.onclick=()=>{selectedId=account.id;updateSelection();closeMenu(true)};list.append(option);
   }
 }
-function openMenu(direction=0){if(busy||!state.accounts.length)return;renderOptions();$('#account-menu').hidden=false;$('#account-trigger').setAttribute('aria-expanded','true');const options=[...$('#account-options').children];const selected=options.findIndex(el=>el.dataset.id===selectedId);options[direction<0?options.length-1:Math.max(0,selected)]?.focus()}
+function openMenu(direction=0){if(busy||!selectableAccounts().length)return;renderOptions();$('#account-menu').hidden=false;$('#account-trigger').setAttribute('aria-expanded','true');const options=[...$('#account-options').children];const selected=options.findIndex(el=>el.dataset.id===selectedId);options[direction<0?options.length-1:Math.max(0,selected)]?.focus()}
 function render(){
   if(state.platform==='darwin'){$('#exit-title').textContent='Codex 仍在后台运行';$('#exit-help').textContent='请在 Codex / ChatGPT 应用菜单中选择退出（⌘Q）。凭据尚未改写。';$('#retry-exit').textContent='已退出应用，重试';}
   const account=currentAccount(),q=account?.quotaSnapshot,showSession=window.showFiveHour(account?.planType,state.settings);
@@ -41,7 +46,7 @@ function render(){
   $('#session-reset').textContent=stats.resetTime(primary?.resetsAt);$('#weekly-reset').textContent=stats.resetTime(q?.weekly?.resetsAt);
   const summary=stats.summarize(usage);$('#tokens').textContent=stats.compact(summary.todayTokens).replace('.0万','万');$('#sessions').textContent=stats.compact(summary.todaySessions);$('#resets').textContent=stats.compact(q?.resetCredits);
   // Follow current-account changes; preserve only a separately selected switch target.
-  if(selectedId===renderedCurrentId||!state.accounts.some(a=>a.id===selectedId))selectedId=account?.id||state.accounts[0]?.id||null;
+  if(selectedId===renderedCurrentId||!selectableAccounts().some(a=>a.id===selectedId))selectedId=account?.id||state.accounts[0]?.id||null;
   renderedCurrentId=account?.id||null;
   updateSelection();if(!$('#account-menu').hidden){const focused=document.activeElement?.dataset?.id;renderOptions();if(focused)[...$('#account-options').children].find(el=>el.dataset.id===focused)?.focus({preventScroll:true})}
   $('#freshness').textContent=(demo?'演示数据':q?.source==='official-app-server'?'官方快照':'本地快照')+' · '+(q?.checkedAt?new Date(q.checkedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}):'待更新');

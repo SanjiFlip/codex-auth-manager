@@ -69,7 +69,7 @@ function renderCards() {
   $('#cards').innerHTML=items.length?items.map((a,i)=>accountCard(a,i)).join(''):`<div class="empty">${icon('users')}<h2>${state.accounts.length?'没有匹配的账号':'从添加第一个账号开始'}</h2><p>${state.accounts.length?'试试其他名称、邮箱或筛选条件。':'登录一个新账号，或保存当前 Codex 登录。'}</p>${state.accounts.length?'':button('添加账号','add','primary','plus')}</div>`;
 }
 function renderAccounts() {
-  const current=state.accounts.find(a=>a.isActive)|| (state.current?.email?{email:state.current.email,displayName:'当前登录 · 尚未保存'}:null);
+  const current=state.accounts.find(a=>a.isActive)|| (state.current?.exists&&!state.current.error&&(state.current.email||state.current.userId||state.current.subject)?{...state.current,displayName:'当前登录 · 尚未保存'}:null);
   const q=current?.quotaSnapshot;
   const overview=renderRichOverview(current),overviewAt=overview.indexOf('<div class="overview-row">');
   $('#content').innerHTML=heading('账号管理','每个身份，各就其位。轻松管理你的 Codex 账号。',button('悬浮窗','widget','','chart')+button('保存当前账号','save','','download')+button('添加账号','add','primary','plus'))+
