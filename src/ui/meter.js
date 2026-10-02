@@ -1,7 +1,7 @@
 'use strict';
 const demo=!window.codexAuth&&new URLSearchParams(location.search).get('demo')==='1';
 const api=window.codexAuth,$=s=>document.querySelector(s),stats=window.UsageStatistics;
-let state={accounts:[]},usage=null,busy=false,loading=false,loadEpoch=0,selectedId=null,pendingTargetId=null,loadPending=false,messageTimer;
+let state={accounts:[]},usage=null,busy=false,loading=false,loadEpoch=0,selectedId=null,renderedCurrentId=null,pendingTargetId=null,loadPending=false,messageTimer;
 const demoData={settings:{},accounts:[{id:'a',displayName:'日常工作',planType:'pro',isActive:true,quotaSnapshot:{session:{usedPercent:21,resetsAt:new Date(Date.now()+16860000).toISOString()},weekly:{usedPercent:3,resetsAt:new Date(Date.now()+600000000).toISOString()},resetCredits:1,checkedAt:new Date().toISOString()}},{id:'b',displayName:'研究与探索',planType:'prolite',isActive:false,quotaSnapshot:{weekly:{usedPercent:32,resetsAt:new Date(Date.now()+380000000).toISOString()},resetCredits:0,checkedAt:new Date().toISOString()}},{id:'c',displayName:'创作空间',planType:'plus',isActive:false,quotaSnapshot:{session:{usedPercent:38,resetsAt:new Date(Date.now()+7200000).toISOString()},weekly:{usedPercent:48,resetsAt:new Date(Date.now()+250000000).toISOString()},checkedAt:new Date().toISOString()}}]};
 function notify(message){clearTimeout(messageTimer);$('#message').textContent=message;$('#message').hidden=!message;if(message)messageTimer=setTimeout(()=>{$('#message').hidden=true},6500)}
 function currentAccount(){return state.accounts.find(a=>a.isActive)}
@@ -40,8 +40,9 @@ function render(){
   $('#health').textContent=p===null?'额度待获取':p>=50?'状态良好':p>=15?'继续创作':'留意额度';
   $('#session-reset').textContent=stats.resetTime(primary?.resetsAt);$('#weekly-reset').textContent=stats.resetTime(q?.weekly?.resetsAt);
   const summary=stats.summarize(usage);$('#tokens').textContent=stats.compact(summary.todayTokens).replace('.0万','万');$('#sessions').textContent=stats.compact(summary.todaySessions);$('#resets').textContent=stats.compact(q?.resetCredits);
-  // Preserve the pending choice across state/usage refreshes until it is removed or switched.
-  if(!state.accounts.some(a=>a.id===selectedId))selectedId=account?.id||state.accounts[0]?.id||null;
+  // Follow current-account changes; preserve only a separately selected switch target.
+  if(selectedId===renderedCurrentId||!state.accounts.some(a=>a.id===selectedId))selectedId=account?.id||state.accounts[0]?.id||null;
+  renderedCurrentId=account?.id||null;
   updateSelection();if(!$('#account-menu').hidden){const focused=document.activeElement?.dataset?.id;renderOptions();if(focused)[...$('#account-options').children].find(el=>el.dataset.id===focused)?.focus({preventScroll:true})}
   $('#freshness').textContent=(demo?'演示数据':q?.source==='official-app-server'?'官方快照':'本地快照')+' · '+(q?.checkedAt?new Date(q.checkedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}):'待更新');
 }

@@ -20,6 +20,7 @@ npm test
 | 更新检查 / 用量导出 | `npx electron scripts/settings-smoke.js`；打包后加 `--packaged` |
 | 大项目素材选择 | `npx electron scripts/knowledge-performance-smoke.js`（合成素材与操作计数） |
 | 账号切换、IPC、凭据存储 | `npx electron scripts/smoke-electron.js` |
+| 当前账号显示与跨窗同步 | `npx electron scripts/account-display-smoke.js`；打包后加 `--packaged` |
 | 蒸馏、记忆和知识库 | `npx electron scripts/knowledge-smoke.js` |
 | Skills、场景分组与来源 | `npx electron scripts/skills-smoke.js --limited`；打包后加 `--packaged` |
 | Skills 翻译调度与性能 | `node scripts/translation-performance-smoke.js`（固定延迟合成响应，不访问翻译服务）；界面流程同时运行 Skills 隔离检查 |

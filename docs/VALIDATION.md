@@ -1,5 +1,14 @@
 # 验证记录
 
+## v0.6.8 账号显示验证（2026-10-02）
+
+- 使用实际 main / preload / 主窗口与悬浮窗、隔离账户库和合成凭据，在修复前复现：主界面切换到 Second account 后，悬浮窗已读取该账号状态，名称仍为 First account。
+- 修复名称跟随当前身份，以及额度汇总和仪表盘在缺失凭据时沿用旧账号的问题。
+- account-display-smoke.js 源码回归通过，覆盖主界面切换、外部登录、保留用户待切换选择、共享工作空间中不同人员、同一人员不同工作空间、启动失败回滚和缺失凭据。
+- npm run check 通过；164 项单元测试中 163 通过，1 项 Mac 原生测试按平台跳过，无失败。smoke-electron.js、realtime-smoke.js、design-smoke.js 均通过。
+- Windows 打包与新增包内回归、Mac 两种架构 CI、Release 产物校验正在进行，完成后补充结果。
+- 测试没有读取真实账号凭据，没有停止或切换用户正在运行的 Codex；真实桌面端在线身份仍待验收。
+
 ## v0.6.7 发布验证（2026-10-02）
 
 - 复核实际入口：preload 的 getStatistics 调用 statistics:get，原 recentStatistics 已过滤近七天起始日期。此前绕过入口的合成调用不能证明发布版把全部历史计入近七天。

@@ -3575,10 +3575,7 @@ async function dashboardScope() {
   const currentAccount = currentIdentityKey
     ? index.accounts.find((account) => identityKey(account.identity ?? {}) === currentIdentityKey)
     : null;
-  const activeAccount = !currentIdentityKey
-    ? index.accounts.find((account) => account.id === index.activeAccountId)
-    : null;
-  const account = currentAccount ?? activeAccount ?? null;
+  const account = currentAccount ?? null;
 
   return {
     account: account ? normalizePublicAccount(account, index.activeAccountId, currentIdentityKey) : null,
@@ -3865,7 +3862,7 @@ async function getAllAccountsQuotaSummary() {
 
   const accounts = index.accounts.map((account) => {
     const key = identityKey(account.identity ?? {});
-    const isActive = account.id === index.activeAccountId || (!!currentIdentityKey && key === currentIdentityKey);
+    const isActive = !!currentIdentityKey && key === currentIdentityKey;
     const snapshot = normalizePublicQuotaSnapshot(account.quotaSnapshot);
     return {
       id: account.id,

@@ -8,6 +8,10 @@ Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/
 
 > 非 OpenAI 官方产品。当前 v0.6.7 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
+## v0.6.8 · 当前账号显示与跨窗同步（2026-10-02）
+
+修复主界面切换或外部登录后，悬浮窗仍显示旧账号名称的问题。当前标记以有效凭据为准，凭据缺失或无法识别时不再沿用旧账号；主动选择的待切换目标在刷新时保留。源码已修复，发布产物正在验证，下方下载入口暂保留 v0.6.7。
+
 ## v0.6.7 · Token 统计与时间边界（2026-10-02）
 
 未记录完整的 Token 字段显示「—」，明确记录的零值显示 0。今日、近 7 天、模型分布、Token 构成、会话数和 CSV 使用同一统计窗口，并排除未来日期记录；跨午夜使用同一快照日期。统计只反映本机可读取日志，缺失记录、计数重置或缺少基线可能导致少计。
@@ -215,6 +219,7 @@ macOS 支持从 PATH、`/opt/homebrew/bin`、`/usr/local/bin`、`~/.local/bin` �
 npm run check
 npm test
 npx electron scripts/smoke-electron.js
+npx electron scripts/account-display-smoke.js
 npx electron scripts/realtime-smoke.js
 ```
 
