@@ -1,11 +1,17 @@
 # 验证记录
 
-## 本地修复版 v0.6.7（2026-10-02，未发布）
+## v0.6.7 发布验证（2026-10-02）
 
 - 复核实际入口：preload 的 getStatistics 调用 statistics:get，原 recentStatistics 已过滤近七天起始日期。此前绕过入口的合成调用不能证明发布版把全部历史计入近七天。
 - 修复未知字段显示为零；增加统计截止时间，排除未来日期记录；页面与 CSV 按同一快照日期显示。
 - npm run check 通过；164 项单元测试中 163 通过，1 项 Mac 原生测试按平台跳过，无失败。
 - settings-smoke.js 使用真实 main / preload / renderer / CSV 路径，合成夹具包含旧记录、起始边界前后、未来记录和跨边界长会话：今日 120 Tokens / 2 会话，近七天 200 Tokens / 3 个独立会话；模型与 CSV 均为 200，未记录子项显示「—」并在 CSV 留空。
+- [GitHub Actions 36987183865](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/36987183865) 三个任务全部成功；Windows 163 通过 / 1 跳过，两种 Mac 架构均 159 通过 / 5 项 Windows 测试按平台跳过；两种 Mac 的源码和打包应用均通过完整统计 IPC / UI / CSV 回归。
+- Windows 重新构建及实际 EXE 检查通过；包内 settings-smoke.js --packaged 检查通过；实时刷新和九页面设计检查通过，已目视检查合成未知字段页面。
+- Windows ASAR 的 73 个 src 文件与工作树逐字节一致，两种 Mac ZIP 中同样的 73 个文件与发布提交的 Git blob 逐字节一致；三者版本均为 0.6.7，无 DevSpace 文件。
+- [v0.6.7 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.7) 已发布，标签指向源码提交 294162e613c5214813c8914e8e36414ae78ff0e4。5 个安装包及 SHA256SUMS-0.6.7.txt 的上传大小和 SHA-256 与本地文件一致。延续预览版状态：Windows 未签名，Mac 仅 ad-hoc 签名，未公证。
+- 发布后匿名重新下载全部 6 个文件，5 个安装包及 [校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.7/SHA256SUMS-0.6.7.txt) 的 SHA-256 均通过；README 下载链接、应用与包版本均为 0.6.7。
+- 本机匿名 GitHub API 返回 403 / Remaining=0；已用 GitHub CLI 的认证 API 返回数据验证应用版本选择：从 v0.6.6 匹配 v0.6.7，以及三个平台各自的安装包。匿名更新网络路径本次受限，不能标为通过；公开 Release 下载独立验证。
 - 没有读取真实用户会话或更改真实凭据；真实用户 Token 消耗与服务端账单仍未核对。
 
 ## v0.6.6 发布验证（2026-10-02）
