@@ -94,6 +94,12 @@ async function until(test,label){for(let i=0;i<100;i++){if(await test())return;a
     fs.writeFileSync(path.join(screenshots,'unsaved-main.png'),(await main.webContents.capturePage()).toPNG());
   }
   console.log('PASS: watching, switching and deleted-account handling never add unsolicited accounts; unsaved identity is displayed');
+  failLaunch=true;
+  const unsavedFailure=await evaluate(main,`window.codexAuth.switchAccount(${JSON.stringify(b)}).then(()=>null,e=>e.message)`);
+  assert.match(unsavedFailure,/已恢复原凭据/);failLaunch=false;
+  assert.equal(fs.readFileSync(authPath,'utf8'),credentials('unsaved','unsaved-workspace'),'Failed switch restores an unsaved login without adding it');
+  assert.equal((await evaluate(main,'window.codexAuth.getState()')).accounts.length,2);
+  await until(async()=>await selected()==='unsaved@example.invalid','rollback restores the unsaved current identity');
   const saved=await evaluate(main,'window.codexAuth.importCurrent("Saved explicitly")');
   assert.equal(saved.accounts.length,3,'Explicit save adds exactly the requested account');
   const savedId=saved.accounts.find(account=>account.isActive).id;
