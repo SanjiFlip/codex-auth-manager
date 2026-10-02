@@ -24,7 +24,7 @@ async function nativeFromPackage(root,arch,platform){
 }
 async function resolveCli({env=process.env,arch=process.arch,platform=process.platform,home=require('node:os').homedir()}={}) {
   const value=Object.entries(env).find(([key])=>key.toLowerCase()==='path')?.[1]||'';
-  const directories=value.split(platform==='win32'?';':':');
+  const directories=value.split(path.delimiter);
   let packageError;
   if(platform==='darwin')directories.push('/opt/homebrew/bin','/usr/local/bin',path.join(home,'.local','bin'));
   for(const raw of directories){

@@ -30,7 +30,7 @@ test('a broken npm installation does not hide a later working native CLI',async 
   const root=await fixture(t),broken=path.join(root,'broken'),working=path.join(root,'working');
   await file(path.join(broken,'codex.cmd'));
   const exe=path.join(working,'codex.exe');await file(exe);
-  assert.deepEqual(await resolveCli({platform:'win32',env:{Path:broken+';'+working}}),{command:exe,args:[]});
+  assert.deepEqual(await resolveCli({platform:'win32',env:{Path:[broken,working].join(path.delimiter)}}),{command:exe,args:[]});
 });
 
 test('macOS resolves native CLI and npm wrapper without requiring GUI Node PATH',async t=>{

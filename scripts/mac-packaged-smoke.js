@@ -32,9 +32,9 @@ async function connect(target){
   await main.eval('window.codexAuth.showWidget()');
   let widget;for(let i=0;i<60;i++){widget=(await pages()).find(p=>p.url.includes('meter.html'));if(widget)break;await sleep(100)}
   assert.ok(widget,'Packaged native meter available');const meter=await connect(widget);
-  for(let i=0;i<60;i++){if(await meter.eval('document.querySelector("#plan")?.textContent==="Pro 5x"'))break;await sleep(100)}
-  assert.equal(await meter.eval('document.querySelector("#plan").textContent'),'Pro 5x');
+  for(let i=0;i<60;i++){if(await meter.eval('document.querySelector("#plan")?.textContent==="Pro Lite"'))break;await sleep(100)}
+  assert.equal(await meter.eval('document.querySelector("#plan").textContent'),'Pro Lite');
   assert.equal(fs.readFileSync(path.join(home,'auth.json'),'utf8'),auth);
-  console.log('MAC PACKAGE PASS: native executable, Keychain account import, isolated vault, real IPC, Pro 5x and meter; original synthetic auth preserved.');
+  console.log('MAC PACKAGE PASS: native executable, Keychain account import, isolated vault, real IPC, Pro Lite and meter; original synthetic auth preserved.');
  }finally{for(const socket of sockets)socket.close();if(child.exitCode===null)child.kill();}
 })().catch(error=>{console.error('MAC PACKAGE FAIL:',error.message);process.exitCode=1});
