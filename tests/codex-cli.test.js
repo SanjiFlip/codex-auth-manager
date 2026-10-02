@@ -26,6 +26,13 @@ test('missing native package fails instead of falling back to a window-opening s
   await assert.rejects(resolveCli({platform:'win32',env:{Path:root},arch:'x64'}),/原生|native/i);
 });
 
+test('a broken npm installation does not hide a later working native CLI',async t=>{
+  const root=await fixture(t),broken=path.join(root,'broken'),working=path.join(root,'working');
+  await file(path.join(broken,'codex.cmd'));
+  const exe=path.join(working,'codex.exe');await file(exe);
+  assert.deepEqual(await resolveCli({platform:'win32',env:{Path:broken+';'+working}}),{command:exe,args:[]});
+});
+
 test('macOS resolves native CLI and npm wrapper without requiring GUI Node PATH',async t=>{
  const root=await fixture(t);const native=path.join(root,'direct','codex');await file(native,'native fixture');
  assert.deepEqual(await resolveCli({platform:'darwin',env:{PATH:path.dirname(native)},home:root}),{command:await fs.realpath(native),args:[]});

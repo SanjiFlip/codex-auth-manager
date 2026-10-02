@@ -44,7 +44,7 @@ async function connect(target){
     assert.equal(state.version,require('../package.json').version);assert.equal(state.accounts[0].planType,'prolite');
     assert.ok(!JSON.stringify(state).includes('SYNTHETIC-PACKAGED-TEST'));
     assert.equal(state.storeRoot,path.join(temp,'vault'));
-    assert.equal(await main.eval('window.planLabel("prolite")'),'Pro 5x');
+    assert.equal(await main.eval('window.planLabel("prolite")'),'Pro Lite');
     assert.ok(await main.eval('Array.from(document.styleSheets).some(s=>s.href?.includes("aurora.css"))'));
     const frame=await main.eval('(()=>{document.querySelector(".page-scroll").scrollTop=10000;const h=document.querySelector(".topbar").getBoundingClientRect(),s=document.querySelector(".page-scroll").getBoundingClientRect();return {top:h.top,edge:h.bottom,scrollTop:s.top,root:window.scrollY,safe:document.querySelector(".top-right").getBoundingClientRect().right<=innerWidth-138}})()');
     assert.equal(frame.top,0);assert.equal(frame.root,0);assert.ok(frame.scrollTop>=frame.edge);assert.ok(frame.safe);
@@ -52,8 +52,8 @@ async function connect(target){
     await main.eval('window.codexAuth.showWidget()');
     let meterTarget;for(let i=0;i<80;i++){meterTarget=(await pages()).find(p=>p.url.includes('meter.html'));if(meterTarget)break;await sleep(150)}
     assert.ok(meterTarget,'Packaged meter loaded');const meter=await connect(meterTarget);
-    for(let i=0;i<60;i++){if(await meter.eval('document.querySelector("#plan")?.textContent === "Pro 5x"'))break;await sleep(200)}
-    assert.equal(await meter.eval('document.querySelector("#plan").textContent'),'Pro 5x');
+    for(let i=0;i<60;i++){if(await meter.eval('document.querySelector("#plan")?.textContent === "Pro Lite"'))break;await sleep(200)}
+    assert.equal(await meter.eval('document.querySelector("#plan").textContent'),'Pro Lite');
     assert.equal(await meter.eval('document.querySelectorAll(".stat-icon svg").length'),3);
     await meter.eval('window.codexAuth.setWidgetTopmost(true)');
     assert.equal((await meter.eval('window.codexAuth.getWidgetTopmost()')).pinned,true);
@@ -101,6 +101,6 @@ async function connect(target){
     assert.equal(savedIndex.accounts[0].quotaSnapshot.weekly.resetsAt,quotaReset+1);
     assert.equal(fs.readFileSync(path.join(home,'auth.json'),'utf8'),auth);
     assert.ok(fs.existsSync('release/win-unpacked/resources/app.asar.unpacked/src/windows-codex.ps1'));
-    console.log('PACKAGED PASS: EXE startup, isolated vault, real IPC/DPAPI, Pro 5x, shared theme, native meter, pin, missing quota, unpacked Windows helper, current auth unchanged, quota preserved after default-zero log and periodic refresh.');
+    console.log('PACKAGED PASS: EXE startup, isolated vault, real IPC/DPAPI, Pro Lite, shared theme, native meter, pin, missing quota, unpacked Windows helper, current auth unchanged, quota preserved after default-zero log and periodic refresh.');
   }finally{for(const socket of sockets)socket.close();if(child.exitCode===null)child.kill();}
 })().catch(e=>{console.error('PACKAGED FAIL:',e.message);process.exitCode=1});

@@ -24,7 +24,8 @@ async function nativeFromPackage(root,arch,platform){
 }
 async function resolveCli({env=process.env,arch=process.arch,platform=process.platform,home=require('node:os').homedir()}={}) {
   const value=Object.entries(env).find(([key])=>key.toLowerCase()==='path')?.[1]||'';
-  const directories=value.split(path.delimiter);
+  const directories=value.split(platform==='win32'?';':':');
+  let packageError;
   if(platform==='darwin')directories.push('/opt/homebrew/bin','/usr/local/bin',path.join(home,'.local','bin'));
   for(const raw of directories){
     const directory=raw.trim().replace(/^"|"$/g,'');if(!directory||!path.isAbsolute(directory))continue;
@@ -34,7 +35,10 @@ async function resolveCli({env=process.env,arch=process.arch,platform=process.pl
       const resolved=await fs.realpath(binary);
       const handle=await fs.open(resolved,'r');const magic=Buffer.alloc(2);
       try{await handle.read(magic,0,2,0)}finally{await handle.close()}
-      if(magic.toString()==='#!')return nativeFromPackage(path.dirname(path.dirname(resolved)),arch,platform);
+      if(magic.toString()==='#!'){
+        try{return await nativeFromPackage(path.dirname(path.dirname(resolved)),arch,platform)}
+        catch(error){packageError=error;continue;}
+      }
       return {command:resolved,args:[]};
     }
     const executable=path.join(directory,'codex.exe');
@@ -42,10 +46,11 @@ async function resolveCli({env=process.env,arch=process.arch,platform=process.pl
     for(const extension of ['cmd','ps1','bat']){
       if(!await isFile(path.join(directory,'codex.'+extension)))continue;
       const root=path.join(directory,'node_modules','@openai','codex');
-      return nativeFromPackage(await fs.realpath(root).catch(()=>root),arch,platform);
+      try{return await nativeFromPackage(await fs.realpath(root).catch(()=>root),arch,platform)}
+      catch(error){packageError=error;break;}
     }
   }
-  throw new Error('未找到 Codex 原生 CLI，请安装后重新打开管理工具。');
+  throw packageError||new Error('未找到 Codex 原生 CLI，请安装后重新打开管理工具。');
 }
 
 // Only the official authorization URL is exposed, never arbitrary CLI output.
@@ -97,6 +102,7 @@ function createLogin({ root, save, report = () => {}, resolve = resolveCli, spaw
         const env = { ...process.env, CODEX_HOME: directory };
         delete env.OPENAI_API_KEY;
         delete env.CODEX_ACCESS_TOKEN;
+        delete env.ELECTRON_RUN_AS_NODE;
         session.timer = setTimeout(() => { cancel().catch(() => {}); }, 5 * 60 * 1000);
         async function attempt(device){
           session.device=device;session.url=null;session.deviceCode=null;

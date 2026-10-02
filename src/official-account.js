@@ -7,26 +7,35 @@ function normalizeOfficialAccount(accountResult, limitsResult, checkedAt=new Dat
   if(accountResult?.account?.type!=='chatgpt')throw new Error('官方服务未识别到 ChatGPT 登录。');
   const raw=limitsResult?.rateLimits;
   const all=limitsResult?.rateLimitsByLimitId;
-  const bucket=all?.codex||raw;
-  const window=value=>value?{usedPercent:typeof value.usedPercent==='number'?Math.max(0,Math.min(100,value.usedPercent)):null,windowMinutes:value.windowDurationMins??null,resetsAt:typeof value.resetsAt==='number'?new Date(value.resetsAt*1000).toISOString():null,checkedAt}:null;
-  const windows=[bucket?.primary,bucket?.secondary].filter(Boolean);
+  const bucket=all?.codex||(raw&&(!raw.limitId||raw.limitId==='codex')?raw:null);
+  const window=value=>{
+    if(!value)return null;
+    const reset=typeof value.resetsAt==='number'?new Date(value.resetsAt*1000):null;
+    return {usedPercent:Number.isFinite(value.usedPercent)?Math.max(0,Math.min(100,value.usedPercent)):null,windowMinutes:value.windowDurationMins??null,resetsAt:reset&&Number.isFinite(reset.getTime())?reset.toISOString():null,checkedAt};
+  };
+  const windowsFor=b=>({session:window([b?.primary,b?.secondary].find(w=>w?.windowDurationMins===300)),weekly:window([b?.primary,b?.secondary].find(w=>w?.windowDurationMins===10080))});
+  const buckets=new Map(Object.entries(all||{}));
+  if(raw?.limitId&&!buckets.has(raw.limitId))buckets.set(raw.limitId,raw);
+  const availableCount=limitsResult?.rateLimitResetCredits?.availableCount;
   return {
     planType:accountResult.account.planType||bucket?.planType||null,
     email:accountResult.account.email||null,
-    quota:{source:'official-app-server',limitId:bucket?.limitId??'codex',checkedAt,resetCredits:typeof limitsResult?.rateLimitResetCredits?.availableCount==='number'?limitsResult.rateLimitResetCredits.availableCount:null,session:window(windows.find(w=>w.windowDurationMins===300)),weekly:window(windows.find(w=>w.windowDurationMins===10080))},
+    quota:{source:'official-app-server',limitId:'codex',checkedAt,resetCredits:Number.isInteger(availableCount)&&availableCount>=0?availableCount:null,...windowsFor(bucket),additional:[...buckets].filter(([id])=>id!=='codex').map(([id,b])=>({source:'official-app-server',limitId:id,checkedAt,...windowsFor(b)}))},
   };
 }
 
-async function queryOfficialAccount(home,{resolve=resolveCli,spawnProcess=spawn}={}) {
+async function queryOfficialAccount(home,{resolve=resolveCli,spawnProcess=spawn,stop=stopChild}={}) {
   const cli=await resolve();
-  const env={...process.env,CODEX_HOME:home};delete env.OPENAI_API_KEY;delete env.CODEX_ACCESS_TOKEN;
+  const env={...process.env,CODEX_HOME:home};delete env.OPENAI_API_KEY;delete env.CODEX_ACCESS_TOKEN;delete env.ELECTRON_RUN_AS_NODE;
   const child=spawnProcess(cli.command,[...cli.args,'app-server','--listen','stdio://','-c','cli_auth_credentials_store="file"'],{env,windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
-  const childClosed=new Promise(resolve=>{child.once('close',resolve);child.once('error',resolve)});
+  let exited=false;
+  const childClosed=new Promise(resolve=>{const done=()=>{exited=true;resolve()};child.once('close',done);child.once('error',done)});
   const pending=new Map();let nextId=0,closed=false;
   child.stderr.resume();
   const lines=createInterface({input:child.stdout});
   const fail=()=>{closed=true;for(const request of pending.values())request.reject(new Error('官方账号服务已退出。'));pending.clear()};
   child.on('error',fail);child.on('close',fail);
+  child.stdin.on('error',fail);
   lines.on('line',line=>{
     if(line.length>2000000)return;
     let message;try{message=JSON.parse(line)}catch{return}
@@ -56,7 +65,7 @@ async function queryOfficialAccount(home,{resolve=resolveCli,spawnProcess=spawn}
     ]);
   }finally{
     clearTimeout(timer);lines.close();
-    if(child.pid&&!closed)await stopChild(child);
+    if(child.pid&&!exited)await stop(child);
     let closeTimer;
     await Promise.race([childClosed,new Promise(resolve=>{closeTimer=setTimeout(resolve,3000)})]);
     clearTimeout(closeTimer);

@@ -1,6 +1,29 @@
 # 验证记录
 
-## 当前发布：v0.4.1
+## 本地修复版 v0.6.6（2026-10-02，未发布）
+
+验证环境：Windows x64。本机桌面端为 Store/MSIX 包 26.928.1915.0（ChatGPT.exe）；官方最新稳定 CLI 0.160.0 单独安装在项目 output/codex-compat 内，本机全局 CLI 0.159.2 保持原样。所有账号写入测试使用隔离账户库与合成凭据，没有停止、重启或切换用户正在运行的 Codex。
+
+| 验证项 | 结果与边界 |
+| --- | --- |
+| 静态与单元 | npm run check 通过；159 项测试中 158 通过，1 项 macOS 原生测试按平台跳过，无失败 |
+| CLI 0.160.0 / 0.159.2 | codex-compat-smoke.js 通过；login / exec 参数、app-server 额度协议结构、stdio 初始化、未登录 account/read、Skills 版本化配置写入；未执行在线授权、额度查询或模型调用 |
+| Windows 进程退出 | 合成 PowerShell 验证外部桌面后台引擎阻止凭据改写、明确强制退出范围、独立 CLI 排除与 PID 复用排除；本机只读 discover 返回路径与版本 |
+| Electron 集成 | smoke-electron.js 通过；真实 IPC / DPAPI、保存、改名、删除、合成账号切换与失败恢复，OS 适配使用替身 |
+| 实时刷新 | realtime-smoke.js 通过；日志变化、跨窗刷新、零值回归、轮换与凭据保持 |
+| 界面 | design-smoke.js 通过；9 个页面两种尺寸、深浅主题、长列表、Pro Max 默认周额度及 Pro / Plus 悬浮窗；已目视检查诊断和套餐页面 |
+| Windows 构建 | npm run dist 通过；本地 v0.6.6 NSIS 安装包与 win-unpacked；安装包未签名 |
+| 包内一致性 | ASAR 中 73 个 src 文件与当前源码逐字节一致；package.json 版本 0.6.6；无 DevSpace 文件 |
+| 实际 EXE | packaged-smoke.js 通过；隔离账户库、真实 IPC / DPAPI、Pro Lite、主题、悬浮窗、Windows helper 与额度零值回归；当前合成凭据保持不变 |
+
+安装包：`release/Codex Auth Manager Setup 0.6.6.exe`。SHA-256：`a5fd453b01d0ba6512b264af724b31ac30e44277c035fef3cf63568437c19a50`；校验文件：`release/SHA256SUMS-0.6.6.txt`。
+
+本轮没有构建 macOS 安装包，没有发布、安装或替换用户当前程序。真实浏览器授权及桌面端在线账号切换仍未验收，不能据此保证所有问题均已排除。
+
+兼容性依据：[官方更新记录](https://learn.chatgpt.com/docs/changelog)、[凭据存储说明](https://learn.chatgpt.com/docs/auth)、[当前套餐与额度说明](https://learn.chatgpt.com/docs/pricing)，以及隔离 CLI 0.160.0 实际生成的协议。测试日志保存在本机 output/，未提交原始用户数据。
+
+
+## 历史发布记录：v0.4.1
 
 - [Release 与校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.4.1)。发布源码：`f19bbaeb7f6390da4e9659dc56c5a59b0d49296a`。
 - [GitHub Actions 35599898366](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/35599898366)：Windows、macOS arm64 / x64 全部成功；Mac 包含原生窗口、隔离账号与实际打包应用检查。

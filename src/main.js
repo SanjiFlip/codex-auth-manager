@@ -61,6 +61,7 @@ const { recoverAccountIndex } = require("./account-recovery");
 const { encryptPortableCredentials, decryptPortableCredentials, validatePassword, MAX_BUNDLE_BYTES } = require("./portable-credentials");
 const readRecordFile = createRecordCache();
 let detectedCodexVersion = null;
+let detectedCodexVersionAt = 0;
 let selectedLogsDb = null;
 let selectedLogsDbAt = 0;
 const { createLocalDataCache } = require("./quota/local-data-cache");
@@ -859,17 +860,10 @@ async function readLocalRecords(files, since = null) {
 }
 
 async function localDiagnostics(index, current) {
-  if (!detectedCodexVersion) {
-    detectedCodexVersion = (async () => {
-      try {
-        if (isMac) return (await desktopCodex.discover()).version;
-        if (isWindows) {
-          const output = await runPowerShell("$p = Get-AppxPackage -Name 'OpenAI.Codex' -ErrorAction SilentlyContinue | Sort-Object Version -Descending | Select-Object -First 1; if ($p) { $p.Version.ToString() }");
-          return String(output).trim().slice(0,80) || null;
-        }
-      } catch { /* version detection is optional */ }
-      return null;
-    })();
+  // Retry missing installations and notice updates without spawning on every refresh.
+  if (!detectedCodexVersion || Date.now() - detectedCodexVersionAt > 60000) {
+    detectedCodexVersionAt = Date.now();
+    detectedCodexVersion = desktopCodex.discover().then(info => info.version || null).catch(() => null);
   }
   const config=await fs.readFile(codexConfigPath(),"utf8").catch(()=>"");
   const files=await localDataCache.getSessionFiles(sessionsDir(),walkSessionFiles);

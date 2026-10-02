@@ -8,6 +8,12 @@ Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/
 
 > 非 OpenAI 官方产品。当前 v0.6.5 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
+## 本地修复版 v0.6.6 · Codex 兼容性（2026-10-02，未发布）
+
+移除 DevSpace 本地部署功能、服务模块及 IPC。当前套餐采用 Pro / Pro Lite / Pro Max，补充新版 Enterprise / Edu 标识，不再显示旧 5x / 20x 标签。修复损坏的 npm CLI 阻断后续有效安装查找、官方额度查询输入管道错误，以及模型专属额度被当作账号总额度的问题。桌面版本与启动位置共用发现逻辑，版本定期重新读取；退出检查跟踪桌面所属的外部后台引擎，排除独立 CLI 和复用的进程 ID。已用隔离 CLI 0.160.0 检查参数、app-server 协议和 Skills 配置写入；真实账号登录与在线切换仍待验收。
+
+本地 Windows 安装包位于 `release/Codex Auth Manager Setup 0.6.6.exe`。下方 v0.6.5 下载链接保留为已有发布版本，v0.6.6 未上传发布。安装前退出旧版管理工具。
+
 ## v0.6.5 · 翻译取消与译文显示
 
 翻译时可点击「取消翻译」，保留已完成内容；取消期间禁止重复提交。简介增加「隐藏译文 / 显示译文」，切换显示不会调用 API。
@@ -153,12 +159,12 @@ npm start
 - 演示：`npm run demo`，使用独立演示数据，没有真实账号 IPC。
 - Windows 构建：`npm run dist`，输出到 `release/`。
 - macOS 构建：在 Mac 上运行 `npm run dist:mac`，生成 arm64 / x64 的 DMG 与 ZIP。
-- 安装：构建后运行 `release/Codex Auth Manager Setup 0.6.5.exe`；更新时先退出旧版管理工具，再选择原安装目录。
+- 安装：构建后运行 `release/Codex Auth Manager Setup 0.6.6.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
 
-添加账号与查询官方额度需要本机 Codex CLI；开发机验证版本为 `codex-cli 0.154.0`。Windows 支持 Store / MSIX 安装；macOS 支持安装在 /Applications 或 ~/Applications 下的 Codex.app / ChatGPT.app。
+添加账号与查询官方额度需要本机 Codex CLI；本次隔离协议与配置验证版本为 `codex-cli 0.160.0`（同时通过本机 0.159.2 检查）。Windows 支持 Store / MSIX 安装；macOS 支持安装在 /Applications 或 ~/Applications 下的 Codex.app / ChatGPT.app。
 
 macOS 支持从 PATH、`/opt/homebrew/bin`、`/usr/local/bin`、`~/.local/bin` 查找 Codex CLI。Finder 启动的应用不会自动继承交互式 shell 配置；仅安装在 nvm 私有目录中的 CLI 需要加入应用可见的 PATH，或安装到上述可发现目录。
 

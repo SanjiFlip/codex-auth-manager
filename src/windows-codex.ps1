@@ -2,6 +2,8 @@ param([ValidateSet('discover','stop','force-stop','launch')] [string]$Mode)
 $ErrorActionPreference = 'Stop'
 $package = Get-AppxPackage -Name 'OpenAI.Codex' -ErrorAction SilentlyContinue | Sort-Object Version -Descending | Select-Object -First 1
 $installRoot = if ($package -and $package.InstallLocation) { [IO.Path]::GetFullPath($package.InstallLocation).TrimEnd('\') } else { $null }
+$runtimeRoot = if ($env:LOCALAPPDATA) { [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'OpenAI\Codex')).TrimEnd('\') } else { $null }
+$ownedRuntimes = @{}
 function Get-Targets {
   @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
     try {
@@ -9,9 +11,36 @@ function Get-Targets {
       if (-not $candidate) { return $false }
       $candidate = [IO.Path]::GetFullPath($candidate)
       if ($installRoot -and $candidate.StartsWith($installRoot + '\', [StringComparison]::OrdinalIgnoreCase)) { return $true }
-      return ($_.ProcessName -in @('Codex','ChatGPT')) -and ($candidate -like '*\OpenAI\Codex\*')
+      if ($ownedRuntimes.ContainsKey($_.Id) -and $_.StartTime.ToUniversalTime().Ticks -eq $ownedRuntimes[$_.Id]) { return $true }
+      return $runtimeRoot -and ($candidate -in @(
+        ($runtimeRoot + '\Codex.exe'), ($runtimeRoot + '\ChatGPT.exe'),
+        ($runtimeRoot + '\app\Codex.exe'), ($runtimeRoot + '\app\ChatGPT.exe')
+      ))
     } catch { return $false }
   })
+}
+function Remember-OwnedRuntimes($roots) {
+  if (-not $runtimeRoot -or -not @($roots | Where-Object { $_.Id }).Count) { return }
+  # Updated desktop builds place their engines outside the MSIX directory.
+  # Follow parent ownership, never target all codex.exe or node.exe processes.
+  $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+  $owned = @{}
+  foreach ($root in $roots) { $owned[[int]$root.Id] = $true }
+  do {
+    $changed = $false
+    foreach ($entry in $processes) {
+      if ($owned.ContainsKey([int]$entry.ParentProcessId) -and -not $owned.ContainsKey([int]$entry.ProcessId)) {
+        $owned[[int]$entry.ProcessId] = $true
+        $changed = $true
+      }
+    }
+  } while ($changed)
+  foreach ($entry in $processes) {
+    if (-not $owned.ContainsKey([int]$entry.ProcessId) -or -not $entry.ExecutablePath) { continue }
+    if (-not $entry.ExecutablePath.StartsWith($runtimeRoot + '\', [StringComparison]::OrdinalIgnoreCase)) { continue }
+    $target = Get-Process -Id $entry.ProcessId -ErrorAction SilentlyContinue
+    if ($target -and $target.Path -eq $entry.ExecutablePath) { $ownedRuntimes[[int]$target.Id] = $target.StartTime.ToUniversalTime().Ticks }
+  }
 }
 if ($Mode -eq 'discover') {
   $startApp = Get-StartApps | Where-Object { $_.AppID -like 'OpenAI.Codex_*!App' } | Select-Object -First 1
@@ -19,10 +48,13 @@ if ($Mode -eq 'discover') {
   $main = Get-Targets | Where-Object { $_.ProcessName -in @('Codex','ChatGPT') -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
   $executable = if ($main) { $main.Path } else { $null }
   if (-not $appId -and -not $executable) { throw 'Cannot locate a supported Windows Codex desktop installation.' }
-  @{ appId = $appId; executable = $executable } | ConvertTo-Json -Compress
+  $version = if ($package) { $package.Version.ToString() } elseif ($main) { $main.FileVersion } else { $null }
+  @{ appId = $appId; executable = $executable; version = $version } | ConvertTo-Json -Compress
   exit 0
 }
 if ($Mode -in @('stop','force-stop')) {
+  $targets = @(Get-Targets)
+  Remember-OwnedRuntimes $targets
   $targets = @(Get-Targets)
   foreach ($target in $targets) {
     if ($Mode -eq 'force-stop') {

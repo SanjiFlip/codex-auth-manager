@@ -17,6 +17,10 @@ app.whenReady().then(async () => {
   await win.loadFile(path.resolve('src/ui/manager.html'), { query:{demo:'1'} }); await sleep(150);
   assert.equal(await evaluate('document.querySelectorAll(".account-card").length'),4);
   assert.equal(await evaluate('document.querySelector(".account-card").querySelectorAll(".meter").length'),1,'Pro off should use the full card for weekly quota');
+  await evaluate("state.accounts[0].planType='promax';render()");
+  assert.equal(await evaluate('document.querySelector(".account-card .tag").textContent'),'Pro Max');
+  assert.equal(await evaluate('document.querySelector(".account-card").querySelectorAll(".meter").length'),1,'Pro Max should default to the weekly quota');
+  await evaluate("state.accounts[0].planType='pro';render()");
   const redraw = await evaluate(`(async()=>{const before=document.querySelector('.account-card');await refreshLive();return before===document.querySelector('.account-card')})()`);
   assert.equal(redraw,true,'unchanged live data should preserve DOM');
   await evaluate(`const searchBox=document.querySelector('#search');searchBox.value='studio';searchBox.dispatchEvent(new Event('input',{bubbles:true}));`);
@@ -27,6 +31,8 @@ app.whenReady().then(async () => {
     await click(`[data-page="${page}"]`); await sleep(50); await screenshot(page);
     assert.ok(await evaluate('document.querySelector("#content").scrollWidth<=document.querySelector("#content").clientWidth'),'no horizontal overflow '+page);
   }
+  await click('[data-page="diagnostics"]');
+  assert.equal(await evaluate('document.querySelector(".panel h2")?.textContent'),'Codex 与凭据');
   await click('[data-page="skills"]');
   await evaluate(`window.longSkills=window.createSkillsUI({api:{skillsList:async()=>({revision:0,activeGroupIds:[],groups:[],warnings:[],history:[],sources:[],items:Array.from({length:145},(_,i)=>({id:'skill'+i,name:'skill-'+i,description:'Long library fixture',groupIds:[],linked:true,enabled:true}))})},demo:false,toast});window.longSkills.render(document.querySelector('#content'));`);await sleep(60);
   assert.equal(await evaluate('document.querySelectorAll(".s-card").length'),60);

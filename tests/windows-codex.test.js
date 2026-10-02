@@ -18,6 +18,51 @@ test('force exit is opt-in; normal and malformed options cannot request it',asyn
  assert.deepEqual(modes,['stop','stop','force-stop']);
 });
 
+test('desktop-owned external runtimes are checked, while independent CLI and reused PIDs are excluded',async()=>{
+ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
+ const {execFile}=require('node:child_process'),{promisify}=require('node:util');
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'cam-runtime-exit-'));
+ try{
+  // Shorten only the synthetic fixture's wait; production retains its 15s budget.
+  const script=path.join(dir,'adapter.ps1');
+  await fs.writeFile(script,(await fs.readFile(path.resolve('src/windows-codex.ps1'),'utf8')).replaceAll('.AddSeconds(15)','.AddMilliseconds(50)'));
+  for(const mode of ['stop','force-stop']){
+   const fixture=path.join(dir,mode+'.ps1');
+   await fs.writeFile(fixture,String.raw`$env:LOCALAPPDATA='C:\cam-runtime-fixture'
+$global:alive=@{100=$true;200=$true;201=$true;300=$true;400=$true}
+function Get-AppxPackage { [pscustomobject]@{InstallLocation='C:\cam-msix';Version='1'} }
+function New-Target($id,$exe,$window=0) {
+ $p=[pscustomobject]@{Id=$id;Path=$exe;ProcessName=[IO.Path]::GetFileNameWithoutExtension($exe);MainWindowHandle=$window;StartTime=[datetime]'2026-01-01';HasExited=$false}
+ $p | Add-Member ScriptMethod Kill { $global:alive[$this.Id]=$false; 'ended-'+$this.Id | Write-Output }
+ $p | Add-Member ScriptMethod CloseMainWindow { $global:alive[$this.Id]=$false; $global:targets[400].StartTime=[datetime]'2026-02-01'; return $true }
+ return $p
+}
+$global:targets=@{
+ 100=(New-Target 100 'C:\cam-msix\app\ChatGPT.exe' 1)
+ 200=(New-Target 200 'C:\cam-runtime-fixture\OpenAI\Codex\bin\new\codex.exe')
+ 201=(New-Target 201 'C:\cam-runtime-fixture\OpenAI\Codex\bin\new\node.exe')
+ 300=(New-Target 300 'C:\cam-runtime-fixture\OpenAI\Codex\bin\new\codex.exe')
+ 400=(New-Target 400 'C:\cam-runtime-fixture\OpenAI\Codex\bin\new\node.exe')
+}
+function Get-Process { param($Id) if($Id){if($global:alive[[int]$Id]){$global:targets[[int]$Id]}}else{foreach($key in $global:targets.Keys){if($global:alive[$key]){$global:targets[$key]}}} }
+function Get-CimInstance {
+ foreach($pair in @(@(100,1),@(200,100),@(201,200),@(300,999),@(400,100))){[pscustomobject]@{ProcessId=$pair[0];ParentProcessId=$pair[1];ExecutablePath=$global:targets[$pair[0]].Path}}
+}
+& '${script.replaceAll("'","''")}' -Mode ${mode}
+exit $LASTEXITCODE
+`);
+   let result;
+   try{result=await promisify(execFile)('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fixture],{windowsHide:true,timeout:25000});}
+   catch(error){result=error;}
+   if(mode==='stop'){
+    assert.equal(result.code,2,result.stdout+result.stderr);assert.equal(JSON.parse(result.stdout).count,2,'owned engines block switching after the GUI closes; a reused PID does not count');
+   }else{
+    assert.equal(result.code,undefined,result.stderr);assert.match(result.stdout,/ended-200/);assert.match(result.stdout,/ended-201/);assert.doesNotMatch(result.stdout,/ended-300/);
+   }
+  }
+ }finally{await fs.rm(dir,{recursive:true,force:true});}
+});
+
 test('PowerShell force mode only ends matching installation processes',async()=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process');
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'cam-exit-test-'));

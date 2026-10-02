@@ -1,6 +1,18 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {EventEmitter}=require('node:events'),{PassThrough,Writable}=require('node:stream');
 const {queryOfficialAccount}=require('../src/official-account');
+test('a broken app-server input pipe rejects without an unhandled stream error',async()=>{
+  const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();
+  child.stdin=new Writable({write(chunk,encoding,done){done(Error('synthetic broken pipe'));setImmediate(()=>child.emit('close',1));}});
+  await assert.rejects(queryOfficialAccount('synthetic-home',{resolve:async()=>({command:'fixture',args:[]}),spawnProcess:()=>child}),/通信|退出/);
+});
+test('an input pipe failure still cleans up the native app-server process',async()=>{
+  const child=new EventEmitter();child.pid=12345;child.stdout=new PassThrough();child.stderr=new PassThrough();
+  child.stdin=new Writable({write(chunk,encoding,done){done(Error('synthetic broken pipe'));}});
+  let stopped=false;
+  await assert.rejects(queryOfficialAccount('synthetic-home',{resolve:async()=>({command:'fixture',args:[]}),spawnProcess:()=>child,stop:async c=>{assert.equal(c,child);stopped=true;child.emit('close',1)}}),/通信|退出/);
+  assert.equal(stopped,true);
+});
 test('quota query directly spawns a hidden native process with piped stdio and no login request',async()=>{
   const methods=[];let options,command,args;
   const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();
