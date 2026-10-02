@@ -1,6 +1,6 @@
 # 验证记录
 
-## v0.6.10 细节审计与回归（2026-10-02，发布准备中）
+## v0.6.10 细节审计与回归（2026-10-02 至 03）
 
 - 静态检查通过；186 项单元测试中 185 通过，1 项 macOS 原生测试在 Windows 按平台跳过，无失败。
 - 切换失败覆盖并发改名、排序及设置已用真实 Electron IPC 复现并修复；smoke-electron.js 验证修改保留、凭据恢复、DPAPI 和悬浮窗置顶开 / 关 / 再开启。Windows 文件共享冲突增加有限重试，持续拒绝保留旧凭据。
@@ -15,6 +15,10 @@
 - Windows v0.6.10 构建及实际 EXE 检查通过；包内账号、统计导出、知识库、Skills、窗口生命周期及两进程断点恢复检查通过。ASAR 内 73 个源码文件与工作树逐字节一致，无 DevSpace 文件。
 - 生产依赖通过 npm 官方注册表审计，返回 0 条已知漏洞；本机配置的镜像不提供审计端点，检查时仅临时指定官方源，未修改注册表配置。
 - 最终独立复查无剩余已确认发现；补丁后的 31 项额度与 Token 定向测试通过，包括算法版本迁移与旧估算剥离。
+- [GitHub Actions 37029929448](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/37029929448) 最终三个任务全部成功，对应提交 `79dc30e252b266add973b32694058982455fbcc0`。Windows 185 通过 / 1 跳过，两种 Mac 均 181 通过 / 5 项 Windows 测试按平台跳过；两种 Mac 原生与包内检查通过。Intel 首次依赖下载 `ETIMEDOUT`，重跑后通过。
+- 两种 Mac ZIP 中各 73 个源码文件与上述提交的 Git blob 逐字节一致，版本为 0.6.10，无 DevSpace 文件。
+- [v0.6.10 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.10) 已于北京时间 2026-10-03 发布，标签目标为上述源码提交，延续预览版状态。5 个安装包及 [SHA256SUMS-0.6.10.txt](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.10/SHA256SUMS-0.6.10.txt) 的上传大小与 SHA-256 均验证；发布后匿名重新下载全部 6 个文件，SHA-256 全部通过。
+- 匿名更新 API 在发布前成功读取 v0.6.9，发布后请求触发 GitHub 限流；认证 API 的公开 Release 数据已通过应用更新选择逻辑，v0.6.9 正确识别 v0.6.10 并匹配三个平台安装包。公开下载通过，匿名更新网络路径本次仍受限。
 - 所有账号与会话测试使用隔离合成数据，没有更改真实登录或重启用户的 Codex；真实在线切换与服务端 Token 对账仍未验收。
 
 ## v0.6.9 账号自动加入修复验证（2026-10-02）
