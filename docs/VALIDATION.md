@@ -7,7 +7,12 @@
 - 回归覆盖后台监听、删除后切换、外部不同邮箱、未保存身份的双窗口显示、主动保存和重复保存、已有账号凭据轮换、共享工作空间隔离、切换失败恢复和退出登录。
 - 开发期间检测到新增监听与 Windows 凭据替换冲突，已让监听避开切换过程，并重新验证凭据恢复。
 - npm run check 通过；164 项单元测试中 163 通过，1 项 Mac 原生测试按平台跳过。设计、实时刷新与 Electron 集成检查通过；已目视检查合成未保存账号的悬浮窗。
-- Windows 打包、包内检查及跨平台 CI / Release 校验正在进行，完成后补充结果。
+- Windows 重新构建、包内账号显示回归与实际 EXE 检查通过；包含未保存登录切换失败后恢复原凭据、账号数量保持不变。
+- [GitHub Actions 36999312053](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/36999312053) 三个任务全部通过；Windows 163 通过 / 1 跳过，两种 Mac 均 159 通过 / 5 项 Windows 测试按平台跳过。两种 Mac 的源码和包内账号回归均通过。
+- Windows ASAR 的 73 个源码文件与工作树逐字节一致，两种 Mac ZIP 中的 73 个源码文件与发布提交逐字节一致；版本均为 0.6.9，无 DevSpace 文件。
+- [v0.6.9 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.9) 已发布，目标提交为 0f92590f2353ad3007c0df4682e1bd8566f07ac2。5 个安装包及 SHA256SUMS-0.6.9.txt 的上传大小与 SHA-256 均通过。延续预览版状态，Windows 未签名，Mac 仅 ad-hoc 签名、未公证。
+- 发布后匿名重新下载全部 6 个文件，安装包与 [校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.9/SHA256SUMS-0.6.9.txt) 的 SHA-256 均通过；README 下载入口已更新。
+- 本机匿名 GitHub API 仍被限流；认证 API 返回的公开 Release 数据已通过应用选择逻辑验证：v0.6.8 正确识别 v0.6.9，并匹配三个平台各自的安装包。公开下载独立通过，匿名更新检查本次受限。
 - 测试使用隔离账户库、合成凭据和 OS 进程替身；真实账号在线切换未验收。
 
 ## v0.6.8 账号显示验证（2026-10-02）
