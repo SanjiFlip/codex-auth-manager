@@ -6,7 +6,12 @@
 - 修复名称跟随当前身份，以及额度汇总和仪表盘在缺失凭据时沿用旧账号的问题。
 - account-display-smoke.js 源码回归通过，覆盖主界面切换、外部登录、保留用户待切换选择、共享工作空间中不同人员、同一人员不同工作空间、启动失败回滚和缺失凭据。
 - npm run check 通过；164 项单元测试中 163 通过，1 项 Mac 原生测试按平台跳过，无失败。smoke-electron.js、realtime-smoke.js、design-smoke.js 均通过。
-- Windows 打包与新增包内回归、Mac 两种架构 CI、Release 产物校验正在进行，完成后补充结果。
+- Windows 重新构建、account-display-smoke.js --packaged 与实际 EXE 检查均通过。
+- [GitHub Actions 36995235466](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/36995235466) 三个任务全部成功；Windows 163 通过 / 1 跳过，Mac arm64 日志汇总为 159 通过 / 5 项 Windows 测试按平台跳过；两种 Mac 架构的源码与包内账号回归均通过。
+- Windows ASAR 的 73 个 src 文件与工作树逐字节一致，两种 Mac ZIP 中的 73 个文件与发布提交的 Git blob 逐字节一致；三者版本均为 0.6.8，无 DevSpace 文件。
+- [v0.6.8 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.8) 已发布，标签目标为源码提交 1c6e2ae1e1f745b193b6beabd74f25c13582c5b1。5 个安装包及 SHA256SUMS-0.6.8.txt 的上传大小和 SHA-256 与本地文件一致。延续预览版状态：Windows 未签名，Mac 仅 ad-hoc 签名，未公证。
+- 发布后匿名重新下载全部 6 个文件，5 个安装包及 [校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.8/SHA256SUMS-0.6.8.txt) 的 SHA-256 均通过；README 下载入口已更新到 v0.6.8。
+- 本机匿名 GitHub API 仍被限流；用认证 API 的公开 Release 数据验证应用从 v0.6.7 识别 v0.6.8，并匹配 Windows x64、Mac arm64 / x64 各自的安装包。匿名更新检查网络路径本次受限，公开 Release 下载独立通过。
 - 测试没有读取真实账号凭据，没有停止或切换用户正在运行的 Codex；真实桌面端在线身份仍待验收。
 
 ## v0.6.7 发布验证（2026-10-02）

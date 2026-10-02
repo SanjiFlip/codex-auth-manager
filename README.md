@@ -1,16 +1,16 @@
 # Codex Auth Manager
 
 [![构建检查](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)
-[![版本 v0.6.7](https://img.shields.io/badge/version-0.6.7-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.7)
+[![版本 v0.6.8](https://img.shields.io/badge/version-0.6.8-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.8)
 [![许可证 MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，采用中性灰与系统蓝主题，提供 Codex Meter 悬浮窗、蒸馏工作台与本地记忆库。
 
-> 非 OpenAI 官方产品。当前 v0.6.7 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
+> 非 OpenAI 官方产品。当前 v0.6.8 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
 ## v0.6.8 · 当前账号显示与跨窗同步（2026-10-02）
 
-修复主界面切换或外部登录后，悬浮窗仍显示旧账号名称的问题。当前标记以有效凭据为准，凭据缺失或无法识别时不再沿用旧账号；主动选择的待切换目标在刷新时保留。源码已修复，发布产物正在验证，下方下载入口暂保留 v0.6.7。
+修复主界面切换或外部登录后，悬浮窗仍显示旧账号名称的问题。当前标记以有效凭据为准，凭据缺失或无法识别时不再沿用旧账号；主动选择的待切换目标在刷新时保留。Windows 和两种 Mac 架构的 [GitHub Actions](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/36995235466) 全部通过，源码及包内回归已验证，安装包和校验文件见下方。
 
 ## v0.6.7 · Token 统计与时间边界（2026-10-02）
 
@@ -94,23 +94,23 @@ Windows EXE 和两种 macOS 架构的 DMG / ZIP 提供一致的工作空间与�
 
 ## 下载安装包
 
-当前版本：**v0.6.7 预览版**。请按操作系统和处理器选择安装包。
+当前版本：**v0.6.8 预览版**。请按操作系统和处理器选择安装包。
 
 | 平台 | 系统要求 | 安装包 |
 | --- | --- | --- |
-| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.7/Codex-Auth-Manager-Setup-0.6.7-x64.exe) |
-| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.7/Codex-Auth-Manager-0.6.7-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.7/Codex-Auth-Manager-0.6.7-arm64.zip) |
-| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.7/Codex-Auth-Manager-0.6.7-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.7/Codex-Auth-Manager-0.6.7-x64.zip) |
+| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.8/Codex-Auth-Manager-Setup-0.6.8-x64.exe) |
+| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.8/Codex-Auth-Manager-0.6.8-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.8/Codex-Auth-Manager-0.6.8-arm64.zip) |
+| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.8/Codex-Auth-Manager-0.6.8-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.8/Codex-Auth-Manager-0.6.8-x64.zip) |
 
-[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.7) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.7/SHA256SUMS-0.6.7.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
+[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.8) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.8/SHA256SUMS-0.6.8.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
 
 Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple Developer ID 签名和公证。Mac 下载后把应用拖到 Applications；若被 Gatekeeper 拦截，请在确认下载来源后使用系统「隐私与安全性」中的打开选项，不要关闭系统安全保护。
 
 更新前从托盘或 macOS 菜单栏完全退出旧版管理工具。Windows 运行安装程序并选择原安装目录；Mac 将新版应用替换到 Applications。跨设备迁移请使用加密导出 / 导入，不要直接复制账户库。
 
-## 最新更新 · v0.6.7
+## 最新更新 · v0.6.8
 
-本版修复未知 Token 字段显示为零，排除未来日期记录，并统一页面和 CSV 的统计快照日期。真实 IPC、界面与 CSV 回归覆盖时间边界和跨日会话；统计只包含本机可计量日志。详见 [更新日志](CHANGELOG.md)。
+本版修复主界面切换或外部登录后悬浮窗账号名称未同步的问题，并统一额度接口的当前账号标记。真实 IPC 与双窗口回归覆盖工作空间隔离、待切换选择、失败恢复和退出登录。详见 [更新日志](CHANGELOG.md)。
 
 各版本 Windows 与 macOS 构建及打包检查结果见 [验证记录](docs/VALIDATION.md) 和 [GitHub Actions](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)。测试使用隔离账户库、合成凭据与模型返回，不等于真实账号在线身份验收。详见 [更新日志](CHANGELOG.md) 和 [验证记录](docs/VALIDATION.md)。
 
@@ -169,7 +169,7 @@ npm start
 - 演示：`npm run demo`，使用独立演示数据，没有真实账号 IPC。
 - Windows 构建：`npm run dist`，输出到 `release/`。
 - macOS 构建：在 Mac 上运行 `npm run dist:mac`，生成 arm64 / x64 的 DMG 与 ZIP。
-- 安装：构建后运行 `release/Codex Auth Manager Setup 0.6.7.exe`；更新时先退出旧版管理工具，再选择原安装目录。
+- 安装：构建后运行 `release/Codex Auth Manager Setup 0.6.8.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
