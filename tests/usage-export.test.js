@@ -19,3 +19,7 @@ test('CSV neutralizes spreadsheet formulas and escapes quotes and line breaks',(
   assert.ok(csv.includes('"\'\t@SUM(1)"'));assert.ok(csv.includes('"a,""b""\nc"'));
   assert.ok(!csv.includes('NaN'));assert.throws(()=>usageCsv(null),/尚无/);
 });
+test('CSV uses the statistics snapshot calendar when export crosses midnight',()=>{
+  const csv=usageCsv({until:new Date(2026,9,2,23,59).toISOString(),daily:[],models:[],sessionsAnalyzed:0,tokenUsage:{totalTokens:0}},new Date(2026,9,3,0,1));
+  assert.ok(csv.includes('2026-09-26'));assert.ok(!csv.includes('2026-10-03'));
+});

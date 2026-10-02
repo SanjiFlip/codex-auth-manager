@@ -208,12 +208,14 @@ function createRecordCache() {
 
 function aggregateUsage(records, options = {}) {
   const since = options.since ? Date.parse(options.since) : null;
+  const until = options.until ? Date.parse(options.until) : null;
   const total = emptyTokenUsage(), seen = new Set(), sessions = new Map(), models = new Map(), days = new Map(), projects = new Map();
   const tokenAvailability = emptyTokenAvailability();
   let duplicates = 0, boundaryIntervals = 0;
   const entries = records.flatMap((r) => r.segments.map((s) => ({r,s}))).sort((a,b) => a.s.ms-b.s.ms);
   for (const {r,s} of entries) {
     if (Number.isFinite(since) && s.ms < since) continue;
+    if (Number.isFinite(until) && s.ms > until) continue;
     if (Number.isFinite(since) && s.first && !(Date.parse(s.startedAt) >= since)) { boundaryIntervals++; continue; }
     if (seen.has(s.key)) { duplicates++; continue; } seen.add(s.key);
     addTokenUsage(total, s.tokenUsage);
@@ -227,7 +229,7 @@ function aggregateUsage(records, options = {}) {
     const session=sessions.get(r.id); addTokenUsage(session.tokenUsage,s.tokenUsage);intersectTokenAvailability(session.tokenAvailability,s.tokenAvailability);session.updatedAt=s.timestamp;session.model=s.model;
   }
   const values=(map)=>[...map.values()].map(({ids,...v})=>({...v,sessions:ids.size}));
-  return { source:"local", checkedAt:new Date().toISOString(), since:options.since??null,
+  return { source:"local", checkedAt:new Date().toISOString(), since:options.since??null, until:options.until??null,
     tokenUsage:total, tokenAvailability, sessionsAnalyzed:sessions.size,
     models:values(models).sort((a,b)=>b.tokenUsage.totalTokens-a.tokenUsage.totalTokens),
     daily:values(days).sort((a,b)=>a.day.localeCompare(b.day)).slice(-7),

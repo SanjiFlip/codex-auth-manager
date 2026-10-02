@@ -16,6 +16,25 @@ fs.writeFileSync(path.join(sessionDir,'rollout-synthetic-usage.jsonl'),[
   {type:'response_item',payload:{type:'message',content:[{text:'SYNTHETIC-PRIVATE-CONTENT'}]}},
   {type:'event_msg',timestamp,payload:{type:'token_count',info:{total_token_usage:{total_tokens:100}}}}
 ].map(value=>JSON.stringify(value)).join('\n')+'\n');
+// Exercise the actual statistics IPC with history, future records and a session
+// continuing across the seven-day boundary. No real account or log is read.
+const snapshot=new Date(),start=new Date(snapshot);start.setHours(0,0,0,0);start.setDate(start.getDate()-6);
+const old=new Date(start);old.setDate(old.getDate()-2);
+const yesterday=new Date(snapshot);yesterday.setDate(yesterday.getDate()-1);
+const future=new Date(snapshot);future.setDate(future.getDate()+1);
+function usageRecord(id,points){
+  const first=points[0][0].toISOString();
+  fs.writeFileSync(path.join(sessionDir,'rollout-'+id+'.jsonl'),[
+    {type:'session_meta',timestamp:first,payload:{id,timestamp:first}},
+    {type:'turn_context',payload:{model:'fixture'}},
+    ...points.map(([date,total])=>({type:'event_msg',timestamp:date.toISOString(),payload:{type:'token_count',info:{total_token_usage:{total_tokens:total}}}})),
+  ].map(JSON.stringify).join('\n')+'\n');
+}
+usageRecord('old',[[old,1000]]);
+usageRecord('before-boundary',[[new Date(start.getTime()-1),900]]);
+usageRecord('at-boundary',[[start,30]]);
+usageRecord('future',[[future,2000]]);
+usageRecord('continued',[[old,1000],[yesterday,1050],[snapshot,1070]]);
 const packaged=process.argv.includes('--packaged');
 const release=path.join(__dirname,'../release');
 const source=packaged?path.join(release,process.platform==='darwin'?(process.arch==='arm64'?'mac-arm64':'mac'):'win-unpacked',...(process.platform==='darwin'?['Codex Auth Manager.app','Contents','Resources']:['resources']),'app.asar','src'):path.join(__dirname,'../src');
@@ -56,19 +75,33 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   assert.equal(requests,1,'opening uses recent validated result');
   assert.equal(await evaluate('window.codexAuth.openUpdate("https://example.invalid").then(()=>false,()=>true)'),true);
   await evaluate('document.querySelector("[data-action=close]").click();document.querySelector("[data-page=usage]").click()');
+  await until('statistics?.tokenUsage?.totalTokens===200');
+  const statisticsResult=await evaluate('window.codexAuth.getStatistics()');
+  assert.equal(statisticsResult.sessionsAnalyzed,3,'multi-day session counts once in the week');
+  assert.equal(statisticsResult.models[0].tokenUsage.totalTokens,200,'old/future usage excluded from model totals');
+  assert.equal(statisticsResult.daily.reduce((sum,row)=>sum+row.tokenUsage.totalTokens,0),200);
+  assert.equal(await evaluate('usageStats.summarize(statistics).todayTokens'),120);
+  assert.equal(await evaluate('usageStats.summarize(statistics).todaySessions'),2);
+  assert.equal(await evaluate('usageStats.summarize(statistics).weekTokens'),200);
+  assert.deepEqual(await evaluate('[...document.querySelectorAll(".panel .summary-value")].map(el=>el.textContent)'),['—','—','—','—'],'unrecorded components remain unknown in real renderer');
   await evaluate('document.querySelector("[data-action=statistics-export]").click()');await until('!busy');
   assert.equal(saveCalls,1);assert.equal(fs.existsSync(exported),false,'cancel writes nothing');
   cancelSave=false;
   await evaluate('document.querySelector("[data-action=statistics-export]").click()');await until('!busy');
   assert.equal(saveCalls,2);const csv=fs.readFileSync(exported,'utf8');assert.ok(csv.startsWith('\ufeff'));assert.ok(csv.includes('本机近7天总计'));assert.ok(!csv.includes(temp));
-  assert.ok(csv.includes('"本机近7天总计","","","1","","","","","100"'),'actual raw log path preserves missing token fields');
+  assert.ok(csv.includes('"本机近7天总计","","","3","","","","","200"'),'actual raw log path preserves missing fields and the shared time window');
+  assert.ok(csv.includes('"本机近7天模型","","fixture","3","","","","","200"'));
+  assert.ok(!csv.includes('1000'));assert.ok(!csv.includes('2000'));
   assert.ok(!csv.includes('SYNTHETIC-PRIVATE'));
   for(const dark of [false,true]){await evaluate(`document.body.classList.toggle('dark',${dark})`);assert.equal(await evaluate('document.querySelector("#content").scrollWidth<=document.querySelector("#content").clientWidth'),true)}
+  fs.mkdirSync('output/design',{recursive:true});
+  win.showInactive();await sleep(220);
+  fs.writeFileSync('output/design/statistics-unknown.png',(await win.webContents.capturePage()).toPNG());
   const other=new BrowserWindow({show:false,webPreferences:{preload:path.join(source,'preload.js'),contextIsolation:true,nodeIntegration:false}});
   await other.loadURL('data:text/html,<title>isolated unauthorized window</title>');
   assert.equal(await other.webContents.executeJavaScript('window.codexAuth.checkForUpdates().then(()=>false,()=>true)'),true);
   assert.equal(await other.webContents.executeJavaScript('window.codexAuth.exportStatistics().then(()=>false,()=>true)'),true);other.destroy();
   assert.equal(saveCalls,2);assert.equal(fs.existsSync(path.join(home,'auth.json')),false);
-  console.log('Settings smoke passed: runtime version, opt-in update check, trusted platform links, cache, CSV export/cancel, frame restriction, light/dark layout.');
+  console.log('Settings smoke passed: runtime version, opt-in update check, platform links, cache, real seven-day IPC/UI/CSV, old and future exclusion, boundary baseline, unique sessions, unknown components, export/cancel, frame restriction, light/dark layout.');
   clearTimeout(timeout);app.exit(0);
 })().catch(error=>{console.error(error);clearTimeout(timeout);app.exit(1)});

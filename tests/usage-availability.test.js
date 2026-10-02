@@ -158,3 +158,16 @@ test("legacy segments without metadata are unknown while empty aggregates are kn
   const filtered = aggregateUsage([record], { since: "2026-09-23T00:00:00.000Z" });
   assert.deepEqual(filtered.tokenAvailability, available(...fields));
 });
+test("bounded aggregates keep prior baselines and exclude later events in every total", async (t) => {
+  const record = await parse(t, [complete,
+    { ...complete, input_tokens: 130, total_tokens: 150 },
+    { ...complete, input_tokens: 190, total_tokens: 210 },
+    { ...complete, input_tokens: 280, total_tokens: 300 },
+  ]);
+  const summary=aggregateUsage([record],{since:record.segments[1].timestamp,until:record.segments[2].timestamp});
+  for(const row of [summary,...summary.models,...summary.daily,...summary.projects,...summary.recentSessions]){
+    assert.equal(row.tokenUsage.totalTokens,110,'only the two in-window deltas are counted');
+  }
+  assert.equal(summary.sessionsAnalyzed,1);
+  assert.equal(summary.until,record.segments[2].timestamp);
+});

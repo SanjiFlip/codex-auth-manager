@@ -9,6 +9,7 @@ function csvCell(value){
 function count(value){return Number.isSafeInteger(value)&&value>=0?value:''}
 function usageCsv(usage,now=new Date()){
   if(!usage||typeof usage!=='object')throw Error('尚无可导出的统计数据。');
+  if(usage.until)now=new Date(usage.until);
   const rows=[['范围','日期','模型','会话数','输入 Tokens','缓存输入 Tokens（输入子项）','输出 Tokens','推理输出 Tokens（输出子项）','总 Tokens']];
   const add=(scope,date,model,sessions,tokens={},available)=>{
     const value=key=>available&&available[key]!==true?'':count(tokens?.[key]);

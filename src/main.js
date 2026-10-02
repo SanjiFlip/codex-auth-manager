@@ -22,7 +22,7 @@ const { spawn } = require("node:child_process");
 const { fileCredentialStoreConfig, resolveCodexHome } = require("./codex-config");
 const {createUpdateChecker}=require('./github-updates');
 const {usageCsv}=require('./usage-export');
-const {dayKey}=require('./ui/statistics');
+const {dayKey,sevenDayRange}=require('./ui/statistics');
 let updateChecker;
 const {
   QUOTA_CONFLICT_WINDOW_MS,
@@ -4497,8 +4497,7 @@ function handleWidgetPointerLeave() {
 }
 
 function recentStatistics(){
-  const since=new Date();since.setHours(0,0,0,0);since.setDate(since.getDate()-6);
-  if(!statisticsInFlight)statisticsInFlight=readLocalUsage({since:since.toISOString()}).finally(()=>{statisticsInFlight=null});
+  if(!statisticsInFlight)statisticsInFlight=readLocalUsage(sevenDayRange()).finally(()=>{statisticsInFlight=null});
   return statisticsInFlight;
 }
 
