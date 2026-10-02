@@ -1,18 +1,18 @@
 # Codex Auth Manager
 
 [![构建检查](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)
-[![版本 v0.6.5](https://img.shields.io/badge/version-0.6.5-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.5)
+[![版本 v0.6.6](https://img.shields.io/badge/version-0.6.6-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.6)
 [![许可证 MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，采用中性灰与系统蓝主题，提供 Codex Meter 悬浮窗、蒸馏工作台与本地记忆库。
 
-> 非 OpenAI 官方产品。当前 v0.6.5 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
+> 非 OpenAI 官方产品。当前 v0.6.6 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
-## 本地修复版 v0.6.6 · Codex 兼容性（2026-10-02，未发布）
+## v0.6.6 · Codex 兼容性与 CI 修复（2026-10-02）
 
 移除 DevSpace 本地部署功能、服务模块及 IPC。当前套餐采用 Pro / Pro Lite / Pro Max，补充新版 Enterprise / Edu 标识，不再显示旧 5x / 20x 标签。修复损坏的 npm CLI 阻断后续有效安装查找、官方额度查询输入管道错误，以及模型专属额度被当作账号总额度的问题。桌面版本与启动位置共用发现逻辑，版本定期重新读取；退出检查跟踪桌面所属的外部后台引擎，排除独立 CLI 和复用的进程 ID。已用隔离 CLI 0.160.0 检查参数、app-server 协议和 Skills 配置写入；真实账号登录与在线切换仍待验收。
 
-本地 Windows 安装包位于 `release/Codex Auth Manager Setup 0.6.6.exe`。下方 v0.6.5 下载链接保留为已有发布版本，v0.6.6 未上传发布。安装前退出旧版管理工具。
+Windows x64 与 macOS arm64 / x64 安装包已发布，下方提供下载链接及 SHA-256 校验文件。Windows 和两种 macOS 架构的 [GitHub Actions 检查](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/36984700434) 均已通过。安装前退出旧版管理工具。
 
 ## v0.6.5 · 翻译取消与译文显示
 
@@ -84,23 +84,23 @@ Windows EXE 和两种 macOS 架构的 DMG / ZIP 提供一致的工作空间与�
 
 ## 下载安装包
 
-当前版本：**v0.6.5 预览版**。请按操作系统和处理器选择安装包。
+当前版本：**v0.6.6 预览版**。请按操作系统和处理器选择安装包。
 
 | 平台 | 系统要求 | 安装包 |
 | --- | --- | --- |
-| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-Setup-0.6.5-x64.exe) |
-| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-0.6.5-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-0.6.5-arm64.zip) |
-| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-0.6.5-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/Codex-Auth-Manager-0.6.5-x64.zip) |
+| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.6/Codex-Auth-Manager-Setup-0.6.6-x64.exe) |
+| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.6/Codex-Auth-Manager-0.6.6-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.6/Codex-Auth-Manager-0.6.6-arm64.zip) |
+| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.6/Codex-Auth-Manager-0.6.6-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.6/Codex-Auth-Manager-0.6.6-x64.zip) |
 
-[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.5) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.5/SHA256SUMS-0.6.5.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
+[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.6) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.6/SHA256SUMS-0.6.6.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
 
 Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple Developer ID 签名和公证。Mac 下载后把应用拖到 Applications；若被 Gatekeeper 拦截，请在确认下载来源后使用系统「隐私与安全性」中的打开选项，不要关闭系统安全保护。
 
 更新前从托盘或 macOS 菜单栏完全退出旧版管理工具。Windows 运行安装程序并选择原安装目录；Mac 将新版应用替换到 Applications。跨设备迁移请使用加密导出 / 导入，不要直接复制账户库。
 
-## 最新更新 · v0.6.5
+## 最新更新 · v0.6.6
 
-本版完善「取消翻译」操作，并为简介增加「隐藏译文 / 显示译文」，保留已完成内容，切换显示不重复请求。此前的服务队列、渐进显示、缓存、手动更新检查和用量 CSV 导出继续保留。详见 [更新日志](CHANGELOG.md) 和 [翻译使用说明](docs/SKILLS.md#可选中文翻译)。
+本版移除 DevSpace，并更新 CLI 查找、额度协议、套餐名称和 Windows 桌面进程跟踪；修复 Windows 与 macOS CI 失败。已验证隔离 CLI 0.160.0。已有翻译取消、渐进显示、缓存、手动更新检查和用量 CSV 导出继续保留。详见 [更新日志](CHANGELOG.md)。
 
 各版本 Windows 与 macOS 构建及打包检查结果见 [验证记录](docs/VALIDATION.md) 和 [GitHub Actions](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)。测试使用隔离账户库、合成凭据与模型返回，不等于真实账号在线身份验收。详见 [更新日志](CHANGELOG.md) 和 [验证记录](docs/VALIDATION.md)。
 
@@ -110,7 +110,7 @@ Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple
 
 ### 账号管理 · 多个身份，一处管理
 
-集中查看当前账号、Pro 20x / Pro 5x / Plus 套餐、本机今日用量和近 7 天趋势。支持添加账号、搜索筛选、保存当前账号，以及切换并重启 Codex。
+集中查看当前账号、Pro / Pro Lite / Pro Max / Plus 套餐、本机今日用量和近 7 天趋势。支持添加账号、搜索筛选、保存当前账号，以及切换并重启 Codex。
 
 ![账号管理主界面：当前账号、用量指标与多账号卡片](docs/images/accounts.png)
 
@@ -133,7 +133,7 @@ Pro 关闭五小时展示时以周额度为主仪表；Plus 展示五小时与�
 
 ### 订阅额度
 
-按账号展示 Pro 5x / Pro 20x / Plus 套餐、剩余额度、恢复时间和可用重置次数；提供单账号及批量官方刷新入口。自动同步默认读取本地记录，官方刷新需要主动点击。
+按账号展示 Pro / Pro Lite / Pro Max / Plus 套餐、剩余额度、恢复时间和可用重置次数；提供单账号及批量官方刷新入口。自动同步默认读取本地记录，官方刷新需要主动点击。
 
 ![订阅额度：套餐分类、各账号额度与官方刷新入口](docs/images/quotas.png)
 
@@ -173,7 +173,7 @@ macOS 支持从 PATH、`/opt/homebrew/bin`、`/usr/local/bin`、`~/.local/bin` �
 - 官方浏览器登录：独立临时 CODEX_HOME，授权成功后加密保存，可取消和重新打开授权页。
 - 账号保存、重命名、搜索、筛选、删除；重复身份更新已有记录。
 - 切换前校验、正常关闭 Codex、确认退出、保存当前最新凭据、原子替换、重新启动；失败恢复原凭据。
-- Pro 5x / Pro 20x 分开显示，官方套餐与额度按账号查询或批量刷新。
+- Pro / Pro Lite / Pro Max 分开显示，官方套餐与额度按账号查询或批量刷新。
 - 5 小时与每周剩余额度、恢复倒计时、官方可用重置次数；缺失值显示「—」。不提供兑换重置。
 - 今日 Tokens / 会话、近 7 天趋势、模型分布、输入 / 缓存 / 输出 / 推理 Token 构成、每日明细。
 - 独立桌面悬浮窗：额度环、每周进度、三项统计、切换账号、置顶、明暗主题、返回主窗口。打开悬浮窗时关闭主窗口会保留浮窗。

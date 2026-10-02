@@ -2,7 +2,7 @@
 
 按版本倒序记录功能与修复，未发布版本另行标注。历史条目描述当时行为；当前使用方式以 [README](README.md) 为准。
 
-## 0.6.6 · Codex 兼容性修复（2026-10-02，未发布）
+## 0.6.6 · Codex 兼容性与 CI 修复（2026-10-02）
 
 - 移除 DevSpace 界面、主进程服务、preload/IPC、演示与测试代码。
 - 套餐标签采用 Pro / Pro Lite / Pro Max，补充新版 Enterprise / Edu 标识，取消旧 5x / 20x 显示；Pro Max 的 5 小时占位默认关闭。

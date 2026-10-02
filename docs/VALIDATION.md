@@ -1,24 +1,27 @@
 # 验证记录
 
-## 本地修复版 v0.6.6（2026-10-02，未发布）
+## v0.6.6 发布验证（2026-10-02）
 
 验证环境：Windows x64。本机桌面端为 Store/MSIX 包 26.928.1915.0（ChatGPT.exe）；官方最新稳定 CLI 0.160.0 单独安装在项目 output/codex-compat 内，本机全局 CLI 0.159.2 保持原样。所有账号写入测试使用隔离账户库与合成凭据，没有停止、重启或切换用户正在运行的 Codex。
 
 | 验证项 | 结果与边界 |
 | --- | --- |
 | 静态与单元 | npm run check 通过；159 项测试中 158 通过，1 项 macOS 原生测试按平台跳过，无失败 |
+| GitHub CI | [36984700434](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/36984700434) 三个任务全部成功；Windows 158 通过 / 1 跳过，两种 Mac 架构均 154 通过 / 5 项 Windows 测试按平台跳过，无失败 |
 | CLI 0.160.0 / 0.159.2 | codex-compat-smoke.js 通过；login / exec 参数、app-server 额度协议结构、stdio 初始化、未登录 account/read、Skills 版本化配置写入；未执行在线授权、额度查询或模型调用 |
 | Windows 进程退出 | 合成 PowerShell 验证外部桌面后台引擎阻止凭据改写、明确强制退出范围、独立 CLI 排除与 PID 复用排除；本机只读 discover 返回路径与版本 |
 | Electron 集成 | smoke-electron.js 通过；真实 IPC / DPAPI、保存、改名、删除、合成账号切换与失败恢复，OS 适配使用替身 |
 | 实时刷新 | realtime-smoke.js 通过；日志变化、跨窗刷新、零值回归、轮换与凭据保持 |
 | 界面 | design-smoke.js 通过；9 个页面两种尺寸、深浅主题、长列表、Pro Max 默认周额度及 Pro / Plus 悬浮窗；已目视检查诊断和套餐页面 |
 | Windows 构建 | npm run dist 通过；本地 v0.6.6 NSIS 安装包与 win-unpacked；安装包未签名 |
-| 包内一致性 | ASAR 中 73 个 src 文件与当前源码逐字节一致；package.json 版本 0.6.6；无 DevSpace 文件 |
+| macOS 构建与应用 | CI 产出 arm64 / x64 的 DMG / ZIP；两种架构的原生窗口、隔离账号、知识库、断点恢复、Skills、设置与实际打包应用检查通过；仅 ad-hoc 签名，未公证 |
+| 包内一致性 | Windows ASAR 中 73 个 src 文件与本机工作树逐字节一致；两种 Mac ZIP 内 ASAR 的 73 个 src 文件与提交 a658b2a 的 Git blob 逐字节一致；三者 package.json 均为 0.6.6，无 DevSpace 文件 |
 | 实际 EXE | packaged-smoke.js 通过；隔离账户库、真实 IPC / DPAPI、Pro Lite、主题、悬浮窗、Windows helper 与额度零值回归；当前合成凭据保持不变 |
+| 公开更新入口 | 使用应用更新模块匿名读取 GitHub；从 v0.6.5 正确识别 v0.6.6 预览版，并为 Windows x64、macOS arm64 / x64 匹配各自安装包 |
 
-安装包：`release/Codex Auth Manager Setup 0.6.6.exe`。SHA-256：`a5fd453b01d0ba6512b264af724b31ac30e44277c035fef3cf63568437c19a50`；校验文件：`release/SHA256SUMS-0.6.6.txt`。
+发布：[v0.6.6](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.6)，延续预览版状态。标签指向已通过 CI 的源码提交 `a658b2a426ac4a46823e91d41bbfb69abbcec53c`。5 个安装包及 [SHA256SUMS-0.6.6.txt](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.6/SHA256SUMS-0.6.6.txt) 的 GitHub 上传大小与 SHA-256 均与本地文件一致；发布后匿名重新下载全部 6 个文件，校验文件及 5 个产物的 SHA-256 均通过。本地产物位于 release/v0.6.6-assets/。
 
-本轮没有构建 macOS 安装包，没有发布、安装或替换用户当前程序。真实浏览器授权及桌面端在线账号切换仍未验收，不能据此保证所有问题均已排除。
+本轮已发布 Windows 与 macOS 安装包，没有安装或替换用户当前程序。真实浏览器授权及桌面端在线账号切换仍未验收，不能据此保证所有问题均已排除。
 
 兼容性依据：[官方更新记录](https://learn.chatgpt.com/docs/changelog)、[凭据存储说明](https://learn.chatgpt.com/docs/auth)、[当前套餐与额度说明](https://learn.chatgpt.com/docs/pricing)，以及隔离 CLI 0.160.0 实际生成的协议。测试日志保存在本机 output/，未提交原始用户数据。
 
