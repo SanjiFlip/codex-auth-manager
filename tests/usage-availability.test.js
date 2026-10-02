@@ -21,7 +21,7 @@ async function parse(t, usages, options = {}) {
   });
   const timestamp = options.timestamp ?? "2026-09-22T02:00:00.000Z";
   const entries = [
-    { type: "session_meta", timestamp, payload: { id: options.id ?? "fixture", cwd: "/synthetic/project", timestamp, ...(options.fork ? { forked_from_id: "parent" } : {}) } },
+    { type: "session_meta", timestamp, payload: { id: options.id ?? "fixture", cwd: "/synthetic/project", timestamp, ...(options.fork ? { forked_from_id: "parent" } : {}), ...options.metadata } },
     { type: "turn_context", payload: { model: options.model ?? "fixture-model" } },
     ...usages.map((usage, index) => ({ type: "event_msg", timestamp: new Date(Date.parse(timestamp) + index * 60000).toISOString(),
       payload: { type: "token_count", info: { total_token_usage: usage } } })),
@@ -170,4 +170,43 @@ test("bounded aggregates keep prior baselines and exclude later events in every 
   }
   assert.equal(summary.sessionsAnalyzed,1);
   assert.equal(summary.until,record.segments[2].timestamp);
+});
+
+test("identical token events from independent sessions count separately while same-session copies deduplicate", async (t) => {
+  const first = await parse(t, [complete], { id: "independent-one" });
+  const second = await parse(t, [complete], { id: "independent-two" });
+  const copy = await parse(t, [complete], { id: "independent-one" });
+  assert.equal(first.events[0].key, second.events[0].key, "the existing event fingerprint stays unchanged");
+  const summary = aggregateUsage([first, second, copy]);
+  for (const row of [summary, ...summary.daily, ...summary.models, ...summary.projects]) assert.equal(row.tokenUsage.totalTokens, 200);
+  assert.equal(summary.sessionsAnalyzed, 2);
+  assert.equal(summary.coverage.duplicates, 1);
+});
+
+test("fork ancestry shares copied history across multiple generations regardless of record order", async (t) => {
+  const values = [100, 150, 200, 250, 300].map(total_tokens => ({ total_tokens }));
+  const parent = await parse(t, values.slice(0, 3), { id: "family-parent" });
+  const child = await parse(t, values.slice(0, 4), { id: "family-child", metadata: { forked_from_id: "family-parent" } });
+  const grandchild = await parse(t, values, { id: "family-grandchild", metadata: { forked_from: "family-child" } });
+  const independent = await parse(t, values, { id: "unrelated-session" });
+  assert.equal(child.forkedFrom, "family-parent");
+  assert.equal(grandchild.forkedFrom, "family-child");
+  for (const records of [[grandchild, parent, child, independent], [independent, child, parent, grandchild]]) {
+    const summary = aggregateUsage(records);
+    assert.equal(summary.tokenUsage.totalTokens, 600);
+    assert.equal(summary.coverage.duplicates, 5);
+  }
+});
+
+test("missing fork parents and cyclic metadata have stable bounded deduplication namespaces", async (t) => {
+  const values = [{ total_tokens: 100 }, { total_tokens: 150 }];
+  const missingOne = await parse(t, values, { id: "missing-one", metadata: { forked_from_id: "unavailable-parent" } });
+  const missingTwo = await parse(t, values, { id: "missing-two", metadata: { forked_from: "unavailable-parent" } });
+  const cycleOne = await parse(t, values, { id: "cycle-one", metadata: { forked_from_id: "cycle-two" } });
+  const cycleTwo = await parse(t, values, { id: "cycle-two", metadata: { forked_from_id: "cycle-one" } });
+  for (const records of [[missingOne, missingTwo, cycleOne, cycleTwo], [cycleTwo, cycleOne, missingTwo, missingOne]]) {
+    const summary = aggregateUsage(records);
+    assert.equal(summary.tokenUsage.totalTokens, 100);
+    assert.equal(summary.coverage.duplicates, 2);
+  }
 });

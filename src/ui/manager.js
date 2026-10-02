@@ -113,10 +113,11 @@ function renderDiagnostics(){
 }
 function renderSettings() {
   $('#content').innerHTML=heading('应用设置','让账户管理融入你的工作方式。')+`<div class="panel"><h2>登录与切换</h2>${row('文件凭据管理',`当前：${escape(state.credentialMode||'未知')}。启用会备份并修改 config.toml 的凭据存储设置；系统凭据不会自动迁移。`,button(state.credentialMode==='file'?'已启用':'启用文件管理','enable-file','', '',state.credentialMode==='file'?'disabled':''))}${row('切换后重启 Codex','先正常关闭并确认退出，再替换凭据。退出超时会停止切换，不强行终止任务。','<span class="tag green">始终启用</span>')}</div><div class="panel"><h2>外观与工作方式</h2>${row('Pro 5 小时额度','Pro 各档位默认关闭。仅在官方实际返回 5 小时快照时展示；周额度始终显示，此开关不改变官方限制。',`<input type="checkbox" id="pro-five-hour" aria-label="Pro 显示 5 小时额度" ${state.settings.proFiveHourEnabled?'checked':''}>`)}${row('主题与悬浮窗','系统蓝与中性灰，浅色和深色主题均保持清晰对比。',`<div class="actions">${button('切换明暗','theme')}${button('打开悬浮窗','widget')}</div>`)}${row('隐私显示','模糊隐藏邮箱，悬停时查看。',`<input type="checkbox" id="privacy" aria-label="隐藏邮箱" ${document.body.classList.contains('privacy')?'checked':''}>`)}${row('开机启动','登录系统时启动本工具。',`<input type="checkbox" id="autostart" aria-label="开机启动" ${state.settings.launchAtLogin?'checked':''}>`)}</div><div class="panel"><h2>本地数据</h2>${row('Codex 目录',escape(state.codexDir),button('打开目录','open-codex'))}${row('账户库',escape(state.storeRoot),button('打开目录','open-store'))}${row('加密凭据迁移','使用迁移密码导入或导出 .codexauth 文件。导入只保存，不切换。',`<div class="actions">${button('导入','import')}${button('导出当前','export')}</div>`)}</div><div class="panel"><h2>版本与更新</h2>${row('当前版本',appVersion?'v'+escape(appVersion)+' · 预览版':'正在读取版本…',button('检查更新','check-updates','','refresh'))}<p class="help-text">手动检查本项目的 GitHub 发布版本（含预览版）；选择后在浏览器打开下载，不会自动安装。</p></div><div class="panel"><h2>关于</h2><p class="help-text">Codex Auth Manager ${appVersion?'v'+escape(appVersion):''} · ${escape(state.platformName||'Windows')} 预览版<br>基于 GboyCode/CodexAuth（MIT）开发，参考 Mintimate/codex-auth-switch 的登录体验。<br>浏览器登录由本机官方 Codex CLI 发起。本工具与 OpenAI 无官方关联。</p></div>`;
-  $('#pro-five-hour').onchange=e=>run(async()=>{try{state=await api.updateSettings({proFiveHourEnabled:e.target.checked})}finally{render()}});
+  $('#pro-five-hour').onchange=e=>saveSetting('proFiveHourEnabled',e.target);
   $('#privacy').onchange=e=>{document.body.classList.toggle('privacy',e.target.checked);localStorage.setItem('privacy',e.target.checked?'1':'0')};
-  $('#autostart').onchange=e=>run(async()=>{state=await api.updateSettings({launchAtLogin:e.target.checked});render()});
+  $('#autostart').onchange=e=>saveSetting('launchAtLogin',e.target);
 }
+function saveSetting(key,input){const value=input.checked;input.checked=!!state.settings[key];return run(async()=>{input.disabled=true;try{state=await api.updateSettings({[key]:value})}finally{render()}})}
 function render() {
   document.body.classList.toggle('mac',state.platform==='darwin');
   $('#protection-label').textContent='● 本地加密 · '+(state.credentialProtection||'Windows DPAPI');
@@ -136,10 +137,12 @@ async function refreshLive(){
   if(busy||loginActive||liveReading){livePending=true;return}
   liveReading=true;const epoch=liveEpoch;
   try{
-    const [next,nextUsage]=await Promise.all([api.getState(),api.getStatistics()]);
+    const results=await Promise.allSettled([api.getState(),api.getStatistics()]);
     if(busy||loginActive||epoch!==liveEpoch){livePending=true;return}
-    state=next;statistics=nextUsage;
-    if(['accounts','usage','quotas'].includes(page)&&viewKey(next,nextUsage)!==lastRenderedKey)render();
+    if(results[0].status==='fulfilled')state=results[0].value;
+    if(results[1].status==='fulfilled')statistics=results[1].value;
+    if(['accounts','usage','quotas'].includes(page)&&viewKey(state,statistics)!==lastRenderedKey)render();
+    const failed=results.find(result=>result.status==='rejected');if(failed)throw failed.reason;
   }catch(e){toast('自动刷新失败：'+e.message)}
   finally{liveReading=false;if(livePending&&!busy&&!loginActive){livePending=false;refreshLive()}}
 }
@@ -147,9 +150,15 @@ function refreshLocalInBackground(){
   api.refreshLocalData?.().catch(()=>{const status=$('.status-pill');status.title='本地读取失败，保留上次快照；稍后重试。'});
 }
 function liveTick(){refreshLive();refreshLocalInBackground()}
-async function run(task) { if(busy)return; busy=true;liveEpoch++; try{await task()}catch(e){toast(e.message||'操作失败');log('操作失败：'+(e.message||'未知错误'))}finally{busy=false;if(page==='accounts'&&$('#cards'))renderCards();if(livePending){livePending=false;refreshLive()}} }
+async function run(task) {
+  if(busy)return;busy=true;liveEpoch++;
+  const dialog=$('#modal'),controls=dialog.open?[...dialog.querySelectorAll('button,input,select,textarea')].map(node=>[node,node.disabled]):[];
+  if(dialog.open){dialog.setAttribute('aria-busy','true');controls.forEach(([node])=>node.disabled=true)}
+  try{await task()}catch(e){toast(e.message||'操作失败');log('操作失败：'+(e.message||'未知错误'))}
+  finally{busy=false;dialog.removeAttribute('aria-busy');controls.forEach(([node,disabled])=>{if(node.isConnected)node.disabled=disabled});if(page==='accounts'&&$('#cards'))renderCards();if(livePending){livePending=false;refreshLive()}}
+}
 function modal(title,body,actions) { const el=$('#modal'); el.innerHTML=`<div class="modal-header"><h2 id="modal-title">${title}</h2><button class="close-btn" data-action="close" aria-label="关闭">×</button></div>${body}<div class="modal-actions">${actions}</div>`; if(!el.open)el.showModal(); }
-async function closeModal() { if(loginActive){await api.cancelLogin();loginActive=false;} $('#modal').close(); }
+async function closeModal() { if(busy)return; if(loginActive){await api.cancelLogin();loginActive=false;} $('#modal').close(); }
 function loginView(status) {
   loginState=status;
   const el=$('#login-status'); if(!el)return;
@@ -160,6 +169,7 @@ function loginView(status) {
   if(['complete','cancelled','error'].includes(status.phase)) { loginActive=false; $('#login-cancel').textContent='完成'; if(status.phase==='complete'){log('已完成官方登录并保存账号');refresh().catch(e=>toast(e.message))} }
 }
 async function act(action,id) {
+  if(busy&&!['theme','widget','settings','diagnostics'].includes(action))return;
   const account=state.accounts.find(a=>a.id===id);
   if(action==='close')return closeModal();
   if(action==='widget')return api.toggleWidget();

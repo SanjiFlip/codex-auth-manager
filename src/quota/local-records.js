@@ -7,7 +7,7 @@ const { selectWindow } = require('./select-window');
 const { normalizeTokenUsage, emptyTokenUsage, addTokenUsage, subtractTokenUsage, tokenUsageTotal } = require("./token-math");
 
 function numberOrNull(value) {
-  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
@@ -31,10 +31,11 @@ function normalizeWindow(raw, checkedAt) {
   if (!raw) return null;
   const used = numberOrNull(raw.used_percent ?? raw.usedPercent);
   const minutes = windowMinutes(raw);
-  const resetsAt = numberOrNull(raw.resets_at ?? raw.resetsAt);
+  const reset = numberOrNull(raw.resets_at ?? raw.resetsAt);
+  const resetsAt = reset !== null && reset >= 0 && Number.isFinite(new Date(reset * 1000).getTime()) ? reset : null;
   if (minutes !== null && minutes <= 0) return null;
   if (used === null && minutes === null && resetsAt === null) return null;
-  return { usedPercent: used === null ? null : Math.max(0, Math.min(100, used)), windowMinutes: minutes, resetsAt, checkedAt, estimateBaseAt: checkedAt };
+  return { usedPercent: used !== null && used >= 0 && used <= 100 ? used : null, windowMinutes: minutes, resetsAt, checkedAt, estimateBaseAt: checkedAt };
 }
 function normalizeResetCredits(raw, checkedAt) {
   const count = numberOrNull(raw?.availableCount ?? raw?.available_count);
@@ -62,7 +63,7 @@ function combineBuckets(buckets) {
   const byId = new Map();
   for (const bucket of buckets.filter(Boolean)) {
     for (const b of [bucket, ...(bucket.additional ?? [])]) {
-      if (!b.limitId) continue;
+      if (!b.limitId || b.isPlaceholder) continue;
       const prev = byId.get(b.limitId);
       if (!prev) { byId.set(b.limitId, b); continue; }
       const [older, newer] = Date.parse(b.checkedAt) >= Date.parse(prev.checkedAt) ? [prev,b] : [b,prev];
@@ -72,8 +73,14 @@ function combineBuckets(buckets) {
       });
     }
   }
-  const main = byId.get("codex") ?? [...byId.values()].sort((a,b) => Date.parse(b.checkedAt)-Date.parse(a.checkedAt))[0];
-  if (!main) return null;
+  const newest = [...byId.values()].sort((a,b) => Date.parse(b.checkedAt)-Date.parse(a.checkedAt))[0];
+  if (!newest) return null;
+  // Preserve model limits as additional data without promoting them to the
+  // account-wide allowance when the Codex bucket has not been observed.
+  const main = byId.get("codex") ?? {
+    source: "local", checkedAt: newest.checkedAt, limitId: "codex", label: "codex", isPlaceholder: true,
+    planType: null, session: null, weekly: null, credits: null, resetCredits: null, error: null,
+  };
   return { ...main, additional: [...byId.values()].filter((b) => b.limitId !== main.limitId).map(({additional, ...b}) => b) };
 }
 
@@ -113,7 +120,7 @@ function intersectTokenAvailability(total, availability) {
 }
 
 async function parseRecordFile(file) {
-  const result = { id:null, cwd:null, startedAt:null, model:null, segments:[], events:[], resets:[], invalidLines:0, counterResets:0, missingBaselines:0 };
+  const result = { id:null, forkedFrom:null, cwd:null, startedAt:null, model:null, segments:[], events:[], resets:[], invalidLines:0, counterResets:0, missingBaselines:0 };
   let previous = null, previousAvailability = null, model = null, tier = null, turnId = null, inherited = false;
   const source = fs.createReadStream(file.path);
   let input = source;
@@ -136,6 +143,7 @@ async function parseRecordFile(file) {
         result.startedAt = p?.timestamp ?? entry.timestamp ?? result.startedAt;
         // A subagent parent is not a fork: its first request is its own usage.
         inherited = !!(p?.forked_from_id || p?.forked_from);
+        result.forkedFrom = [p?.forked_from_id, p?.forked_from].find((id) => typeof id === "string" && id.length > 0) ?? result.forkedFrom;
       }
       if (entry.type === "turn_context") {
         model = p?.model ?? model;
@@ -181,6 +189,7 @@ async function parseRecordFile(file) {
       if (delta && tokenUsageTotal(delta) > 0) result.segments.push({ timestamp, ms, model:eventModel, serviceTier:eventTier, tokenUsage:delta, tokenAvailability:deltaAvailability, key:eventKey, first:boundary, startedAt:result.startedAt });
       const rates = bucketsFromRecord(p);
       for(const raw of rates) {
+        if(limitId(raw)!=="codex")continue;
         const reset=normalizeResetCredits(raw.rateLimitResetCredits??raw.rate_limit_reset_credits,timestamp);
         if(reset)result.resets.push(reset);
       }
@@ -206,18 +215,36 @@ function createRecordCache() {
   };
 }
 
+function createRecordFamilyResolver(records) {
+  // Fork copies share an event namespace; unrelated sessions can legitimately
+  // emit the same timestamp and cumulative counts without a turn ID.
+  const parents = new Map(records.filter((r) => r.forkedFrom).map((r) => [r.id, r.forkedFrom])), families = new Map();
+  return function family(id) {
+    const visited = new Map(); let current = id;
+    while (parents.has(current) && !families.has(current) && !visited.has(current)) {
+      visited.set(current, visited.size); current = parents.get(current);
+    }
+    // A malformed cycle still gets one stable namespace regardless of order.
+    const root = families.get(current) ?? (visited.has(current) ? [...visited.keys()].slice(visited.get(current)).sort()[0] : current);
+    families.set(current, root);
+    for (const member of visited.keys()) families.set(member, root);
+    return root;
+  };
+}
+
 function aggregateUsage(records, options = {}) {
   const since = options.since ? Date.parse(options.since) : null;
   const until = options.until ? Date.parse(options.until) : null;
   const total = emptyTokenUsage(), seen = new Set(), sessions = new Map(), models = new Map(), days = new Map(), projects = new Map();
-  const tokenAvailability = emptyTokenAvailability();
+  const tokenAvailability = emptyTokenAvailability(), family = createRecordFamilyResolver(records);
   let duplicates = 0, boundaryIntervals = 0;
   const entries = records.flatMap((r) => r.segments.map((s) => ({r,s}))).sort((a,b) => a.s.ms-b.s.ms);
   for (const {r,s} of entries) {
     if (Number.isFinite(since) && s.ms < since) continue;
     if (Number.isFinite(until) && s.ms > until) continue;
     if (Number.isFinite(since) && s.first && !(Date.parse(s.startedAt) >= since)) { boundaryIntervals++; continue; }
-    if (seen.has(s.key)) { duplicates++; continue; } seen.add(s.key);
+    const key = JSON.stringify([family(r.id), s.key]);
+    if (seen.has(key)) { duplicates++; continue; } seen.add(key);
     addTokenUsage(total, s.tokenUsage);
     intersectTokenAvailability(tokenAvailability, s.tokenAvailability);
     const day = new Date(s.ms); const dayKey = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,"0")}-${String(day.getDate()).padStart(2,"0")}`;
@@ -251,4 +278,4 @@ function quotaFromRecords(records, since) {
   return combineBuckets(buckets);
 }
 
-module.exports = { numberOrNull, limitId, windowMinutes, windowFor, normalizeWindow, normalizeResetCredits, normalizeBucket, combineBuckets, bucketsFromRecord, parseRecordFile, createRecordCache, aggregateUsage, quotaFromRecords };
+module.exports = { numberOrNull, limitId, windowMinutes, windowFor, normalizeWindow, normalizeResetCredits, normalizeBucket, combineBuckets, bucketsFromRecord, parseRecordFile, createRecordCache, createRecordFamilyResolver, aggregateUsage, quotaFromRecords };

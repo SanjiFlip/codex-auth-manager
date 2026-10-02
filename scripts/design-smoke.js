@@ -9,7 +9,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const evaluate = async js => {try{return await win.webContents.executeJavaScript(js)}catch(e){console.error('Expression:',js);throw e}};
 async function until(expression,label){for(let i=0;i<160;i++){if(await evaluate(expression))return;await sleep(50)}throw Error('Timeout: '+label)}
 const click = selector => evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
-const screenshot = async (name, target = win) => { target.showInactive(); await sleep(220); fs.writeFileSync(path.join(root, name+'.png'), (await target.webContents.capturePage()).toPNG()); };
+const screenshot = async (name, target = win) => { if(target===win)await evaluate('document.querySelector("#toast").classList.remove("show")');target.showInactive(); await sleep(220); fs.writeFileSync(path.join(root, name+'.png'), (await target.webContents.capturePage()).toPNG()); };
 setTimeout(() => { console.error('DESIGN FAIL timeout'); app.exit(1); }, 45000);
 app.whenReady().then(async () => {
   win = new BrowserWindow({ width:1400,height:940,show:false,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false} });
@@ -27,6 +27,19 @@ app.whenReady().then(async () => {
   assert.equal(await evaluate('document.querySelectorAll(".account-card").length'),1);
   await evaluate(`search='';render()`);
   await evaluate(`run(async()=>render())`);assert.ok(await evaluate('[...document.querySelectorAll(".switch-btn")].every(button=>!button.disabled)'),'account controls must recover after an operation');
+  await evaluate(`window.originalState=api.getState;window.originalStatistics=api.getStatistics;api.getState=async()=>{const next=await window.originalState();next.accounts[0].displayName='刷新成功的合成身份';return next};api.getStatistics=async()=>{throw Error('Synthetic statistics failure')};refreshLive()`);
+  assert.equal(await evaluate('document.querySelector(".active-panel h2").firstChild.textContent'),'刷新成功的合成身份','failed statistics must not block current account updates');
+  await evaluate('api.getState=window.originalState;api.getStatistics=window.originalStatistics;refreshLive()');
+  await click('[data-action="edit"][data-id="a"]');
+  await evaluate(`window.originalUpdateAccount=api.updateAccount;api.updateAccount=(...args)=>new Promise(resolve=>window.finishRename=()=>resolve(window.originalUpdateAccount(...args)));document.querySelector('#account-name').value='合成改名';document.querySelector('[data-action=rename]').click()`);
+  assert.ok(await evaluate('busy&&document.querySelector("#account-name").disabled&&document.querySelector("#modal [data-action=close]").disabled'),'pending modal locks its controls');
+  await evaluate(`closeModal();act('add');document.querySelector('#modal').dispatchEvent(new Event('cancel',{cancelable:true}))`);
+  assert.equal(await evaluate('document.querySelector("#modal").open&&document.querySelector("#modal-title").textContent'),'管理账号','pending action must retain its own dialog');
+  await evaluate('window.finishRename();void 0');await until('!busy&&!document.querySelector("#modal").open','rename finished');await evaluate('api.updateAccount=window.originalUpdateAccount;void 0');
+  await click('[data-page="settings"]');
+  await evaluate(`window.originalUpdateSettings=api.updateSettings;api.updateSettings=async()=>{throw Error('Synthetic settings failure')};document.querySelector('#autostart').click()`);await until('!busy','failed setting recovered');
+  assert.equal(await evaluate('document.querySelector("#autostart").checked'),false,'failed autostart save restores persisted state');
+  await evaluate('api.updateSettings=window.originalUpdateSettings;void 0');
   for(const page of ['accounts','usage','quotas','distill','skills','memory','activity','diagnostics','settings']){
     await click(`[data-page="${page}"]`); await sleep(50); await screenshot(page);
     assert.ok(await evaluate('document.querySelector("#content").scrollWidth<=document.querySelector("#content").clientWidth'),'no horizontal overflow '+page);
@@ -34,6 +47,13 @@ app.whenReady().then(async () => {
   await click('[data-page="diagnostics"]');
   assert.equal(await evaluate('document.querySelector(".panel h2")?.textContent'),'Codex 与凭据');
   await click('[data-page="skills"]');
+  await evaluate(`document.querySelector('#s-tab-library').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))`);
+  assert.equal(await evaluate('document.activeElement.id'),'s-tab-groups','arrow navigation retains the active tab focus');
+  await evaluate('document.querySelector("[data-sgroup=daily]").focus();document.activeElement.click()');
+  assert.equal(await evaluate('document.activeElement.dataset.sgroup'),'daily','group selection retains keyboard focus');
+  await evaluate(`document.querySelector('#s-tab-groups').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}))`);await sleep(50);
+  assert.equal(await evaluate('document.activeElement.id'),'s-tab-store','async store redraw preserves tab focus');
+  await click('#s-tab-library');
   await evaluate(`window.longSkills=window.createSkillsUI({api:{skillsList:async()=>({revision:0,activeGroupIds:[],groups:[],warnings:[],history:[],sources:[],items:Array.from({length:145},(_,i)=>({id:'skill'+i,name:'skill-'+i,description:'Long library fixture',groupIds:[],linked:true,enabled:true}))})},demo:false,toast});window.longSkills.render(document.querySelector('#content'));`);await sleep(60);
   assert.equal(await evaluate('document.querySelectorAll(".s-card").length'),60);
   await click('[data-sact=more-cards]');assert.equal(await evaluate('document.querySelectorAll(".s-card").length'),120);
@@ -101,6 +121,15 @@ app.whenReady().then(async () => {
   await evaluate(`{const q=document.querySelector('#k-query');q.value='no match';q.dispatchEvent(new Event('input',{bubbles:true}))}`);await until('document.querySelectorAll(".k-card").length===0','empty memory search');await click('[data-kact="reset-filters"]');
   assert.equal(await evaluate('document.querySelectorAll(".k-card").length'),24);
   await evaluate('window.setTimeout=window.designSetTimeout;void 0');
+  await evaluate(`window.failedSaveUI=window.createKnowledgeUI({api:{knowledgeList:async()=>[],knowledgeState:async()=>({phase:'idle'}),knowledgeSave:()=>new Promise((resolve,reject)=>window.rejectKnowledgeSave=reject)},demo:false,toast});window.failedSaveUI.render('memory',document.querySelector('#content'));`);await sleep(50);
+  await click('[data-kact=new]');
+  await evaluate(`document.querySelector('#knowledge-dialog [name=title]').value='合成记忆草稿';document.querySelector('#knowledge-dialog [name=body]').value='等待保存的正文';document.querySelector('[data-dialog-action=saved]').click()`);
+  assert.ok(await evaluate(`(()=>{const dialog=document.querySelector('#knowledge-dialog'),event=new Event('cancel',{cancelable:true});dialog.dispatchEvent(event);return event.defaultPrevented&&dialog.open&&dialog.querySelector('[name=title]').disabled})()`),'Escape cannot dismiss an in-flight knowledge save');
+  await evaluate(`window.rejectKnowledgeSave(Error('Synthetic knowledge save failure'));void 0`);await until('!document.querySelector("#knowledge-dialog").dataset.pending','failed knowledge save recovered');
+  assert.equal(await evaluate('document.querySelector("#knowledge-dialog [name=body]").value'),'等待保存的正文');
+  assert.equal(await evaluate('document.querySelector("#knowledge-dialog [name=title]").disabled'),false);
+  await click('#knowledge-dialog [data-close]');
+  await evaluate(`window.designUI.render('memory',document.querySelector('#content'));`);
   await screenshot('memory-large');
   win.setSize(1000,820);await evaluate('document.body.classList.add("dark")');
   for(const page of ['accounts','usage','quotas','distill','skills','memory','activity','diagnostics','settings']){
@@ -108,6 +137,10 @@ app.whenReady().then(async () => {
     assert.ok(await evaluate('document.querySelector("#content").scrollWidth<=document.querySelector("#content").clientWidth'),'compact overflow '+page);
     await screenshot(page+'-compact-dark');
   }
+  await click('[data-page=accounts]');
+  await evaluate(`state.accounts[0].displayName='用于验证长账号名称与邮箱换行的合成账号'.repeat(4);state.accounts[0].email='synthetic-account-name-for-layout-check'.repeat(5)+'@example.com';render()`);
+  assert.ok(await evaluate('document.querySelector("#content").scrollWidth<=document.querySelector("#content").clientWidth'),'long account identity fits compact layout');
+  await screenshot('accounts-long-compact-dark');
   meter = new BrowserWindow({width:360,height:560,frame:false,transparent:true,show:false,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
   await meter.loadFile(path.resolve('src/ui/meter.html'),{query:{demo:'1'}});await sleep(100);
   const me = js => meter.webContents.executeJavaScript(js);
@@ -119,7 +152,14 @@ app.whenReady().then(async () => {
   const layout=await me(`(()=>{const el=document.querySelector('.meter-content');return {viewport:innerHeight,content:el.clientHeight,scroll:el.scrollHeight,children:[...el.children].map(x=>({class:x.className,height:x.getBoundingClientRect().height}))}})()`);
   assert.ok(layout.scroll<=layout.content,'Plus meter should fit: '+JSON.stringify(layout));
   await me('document.querySelector("#message").hidden=true;document.body.classList.add("dark")');await screenshot('meter-plus-dark',meter);
+  const partialPreload=path.join(temp,'partial-meter-preload.cjs');
+  fs.writeFileSync(partialPreload,`const {contextBridge}=require('electron');contextBridge.exposeInMainWorld('codexAuth',{getState:async()=>({settings:{},accounts:[{id:'synthetic-partial',displayName:'统计失败仍更新身份',isActive:true,planType:'plus'}]}),getStatistics:async()=>{throw Error('Synthetic meter statistics failure')},refreshLocalData:async()=>{},getWidgetTopmost:async()=>({pinned:true}),onStateChanged:()=>()=>{}});`);
+  const partialMeter=new BrowserWindow({width:360,height:560,show:false,webPreferences:{preload:partialPreload,sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
+  await partialMeter.loadFile(path.resolve('src/ui/meter.html'));
+  await sleep(100);
+  assert.equal(await partialMeter.webContents.executeJavaScript('document.querySelector("#selected-name").textContent'),'统计失败仍更新身份','meter statistics failure must not block identity refresh');
+  partialMeter.destroy();
   assert.deepEqual(errors,[]);
-  const report={checks:'9 pages at 1400x940 and 1000x820; Pro/Plus meter at 360x560; search, pagination, selection, focus retention, unchanged refresh',messageNodes:24,totalMessages:500,memoryCards:24,totalItems:250,projectNodes:2,initialSessionsPerProject:5,totalSessions:150,unchangedRefreshPreservesDOM:redraw};
+  const report={checks:'9 pages at 1400x940 and 1000x820; long account identity; Pro/Plus meter at 360x560; search, pagination, selection, keyboard focus, unchanged refresh, partial refresh failures, pending dialogs and failed saves',messageNodes:24,totalMessages:500,memoryCards:24,totalItems:250,projectNodes:2,initialSessionsPerProject:5,totalSessions:150,unchangedRefreshPreservesDOM:redraw};
   fs.writeFileSync(path.join(root,'report.json'),JSON.stringify(report,null,2));console.log('DESIGN PASS '+JSON.stringify(report));app.exit(0);
 }).catch(error=>{console.error('DESIGN FAIL',error.stack);app.exit(1)});

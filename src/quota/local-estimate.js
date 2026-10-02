@@ -1,7 +1,7 @@
 const { tokenUsageTotal, subtractTokenUsage, median } = require("./token-math");
-const { limitId, windowFor, normalizeWindow, numberOrNull } = require("./local-records");
+const { limitId, windowFor, normalizeWindow, numberOrNull, createRecordFamilyResolver } = require("./local-records");
 
-const ALGORITHM = 4;
+const { QUOTA_ESTIMATE_ALGORITHM: ALGORITHM } = require("./constants");
 function contextKey(id, model, tier, kind) { return JSON.stringify([id,model??"unknown",tier??"unknown",kind]); }
 function sameWindow(a,b) { return a?.resetsAt === b?.resetsAt && a?.windowMinutes === b?.windowMinutes; }
 
@@ -16,13 +16,14 @@ function estimateLocalQuota(quota, records, {since, calibration} = {}) {
       if (Array.isArray(samples)) groups[key]=samples.filter((s)=>Number.isFinite(s.coefficient)&&s.coefficient>0&&s.ms>Date.now()-7*86400000).slice(-30);
     }
   }
-  const changes=new Map(), seen=new Set(), deltas=[];
+  const changes=new Map(), seen=new Set(), deltas=[], family=createRecordFamilyResolver(records);
   for (const record of records) {
-    const trackers=new Map();
+    const trackers=new Map(), namespace=family(record.id);
     for (const event of record.events) {
       if (!Number.isFinite(cutoff) || event.ms < cutoff || !event.tokenUsage) continue;
       const ids=new Set(event.rates.map(limitId));
-      if (!seen.has(event.key) && event.delta) { deltas.push({...event,ids}); seen.add(event.key); }
+      const eventKey=JSON.stringify([namespace,event.key]);
+      if (!seen.has(eventKey) && event.delta) { deltas.push({...event,ids}); seen.add(eventKey); }
       for (const raw of event.rates) for (const kind of ["session","weekly"]) {
         const w=normalizeWindow(windowFor(raw,kind),event.timestamp);
         if (w?.usedPercent === null || !w) continue;
@@ -36,7 +37,7 @@ function estimateLocalQuota(quota, records, {since, calibration} = {}) {
           const percent=w.usedPercent-prev.window.usedPercent;
           if (units>=1000 && percent>0 && percent<=40 && event.model && event.serviceTier!=="unknown") {
             const samples=groups[key]??=[];
-            const sampleKey=`${prev.key}:${event.key}`;
+            const sampleKey=JSON.stringify([namespace,prev.key,event.key]);
             if (!samples.some((s)=>s.key===sampleKey)) samples.push({key:sampleKey,ms:event.ms,coefficient:percent/units});
             groups[key]=samples.slice(-30);
           }

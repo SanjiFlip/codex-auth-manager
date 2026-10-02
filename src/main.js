@@ -1321,7 +1321,15 @@ async function atomicWriteAuth(content) {
   const temp = path.join(codexDir(), `.auth.json.tmp-${crypto.randomUUID()}`);
   try {
     await fs.writeFile(temp, content, { encoding: "utf8", mode: 0o600 });
-    await fs.rename(temp, target);
+    for (let attempt = 0; ; attempt++) {
+      try { await fs.rename(temp, target); break; }
+      catch (error) {
+        // Windows readers or scanners can briefly hold auth.json during replacement.
+        // Retry the atomic rename without ever deleting the previous credentials.
+        if (!isWindows || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= 6) throw error;
+        await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+      }
+    }
   } finally {
     await fs.rm(temp, { force: true }).catch(() => {});
   }
@@ -1469,17 +1477,28 @@ function shouldSyncAuthFile(filename) {
 }
 
 async function startAuthWatcher() {
+  if (!authSyncInterval) {
+    authSyncInterval = setInterval(async () => {
+      if (!authWatcher) await startAuthWatcher();
+      scheduleAuthSync();
+    }, 10000);
+    authSyncInterval.unref?.();
+  }
   if (authWatcher) return;
   try {
     await fs.mkdir(codexDir(), { recursive: true });
-    authWatcher = fsSync.watch(codexDir(), { persistent: false }, (_event, filename) => {
+    const watcher = fsSync.watch(codexDir(), { persistent: false }, (_event, filename) => {
       if (shouldSyncAuthFile(filename)) {
         scheduleAuthSync();
       }
     });
+    authWatcher = watcher;
+    watcher.on('error', () => {
+      watcher.close();
+      if (authWatcher === watcher) authWatcher = null;
+      scheduleAuthSync();
+    });
     scheduleAuthSync();
-    authSyncInterval = setInterval(scheduleAuthSync, 10000);
-    authSyncInterval.unref?.();
   } catch {
     authWatcher = null;
   }
@@ -1528,8 +1547,14 @@ async function startLocalLogWatcher() {
   if (localLogWatcher) return;
   try {
     await fs.mkdir(codexDir(), { recursive: true });
-    localLogWatcher = fsSync.watch(codexDir(), { persistent: false }, (_event, filename) => {
+    const watcher = fsSync.watch(codexDir(), { persistent: false }, (_event, filename) => {
       if (shouldRefreshForLocalLog(filename)) scheduleLocalLogRefresh();
+    });
+    localLogWatcher = watcher;
+    watcher.on('error', () => {
+      watcher.close();
+      if (localLogWatcher === watcher) localLogWatcher = null;
+      scheduleLocalLogRefresh();
     });
   } catch {
     localLogWatcher = null;
@@ -1544,9 +1569,15 @@ async function startSessionsWatcher() {
   const dir = sessionsDir();
   try {
     await fs.mkdir(dir, { recursive: true });
-    sessionsWatcher = fsSync.watch(dir, { persistent: false, recursive: true }, (_event, filename) => {
+    const watcher = fsSync.watch(dir, { persistent: false, recursive: true }, (_event, filename) => {
       const name = String(filename || "").toLowerCase();
       if (/\.jsonl(?:\.gz|\.zst)?$/.test(name)) scheduleLocalLogRefresh();
+    });
+    sessionsWatcher = watcher;
+    watcher.on('error', () => {
+      watcher.close();
+      if (sessionsWatcher === watcher) sessionsWatcher = null;
+      scheduleLocalLogRefresh();
     });
   } catch {
     sessionsWatcher = null;
@@ -1562,6 +1593,8 @@ async function startSessionsPolling() {
   if (sessionsPollingInterval) return;
   sessionsPollingInterval = setInterval(async () => {
     try {
+      if (!localLogWatcher) await startLocalLogWatcher();
+      if (!sessionsWatcher) await startSessionsWatcher();
       const dbPath = logsDbPath();
       const walPath = logsDbWalPath();
       let latestMtime = 0;
@@ -1635,7 +1668,9 @@ async function switchAccountLocked(accountId, options = {}) {
           account.lastSyncedAt = now;
           index.activeAccountId = account.id;
         });
-        return { auth: raw, index: await readIndex() };
+        const index = await readIndex();
+        return { auth: raw, activeAccountId: index.activeAccountId,
+          targetLastSwitchedAt: index.accounts.find(item => item.id === accountId)?.lastSwitchedAt ?? null };
       },
       apply: async () => {
         await mutateIndex(async index => {
@@ -1647,7 +1682,7 @@ async function switchAccountLocked(accountId, options = {}) {
           await atomicWriteAuth(content);
           const actual = await readCurrentAuth();
           if (identityKey(actual.identity) !== identityKey(target.identity)) throw new Error('凭据回读不一致。');
-          markAccountAuthSnapshot(target, validated, content, new Date().toISOString());
+          // Reusing a saved credential does not prove that a flagged login was renewed.
           target.lastSwitchedAt = new Date().toISOString();
           index.activeAccountId = target.id;
         });
@@ -1656,7 +1691,11 @@ async function switchAccountLocked(accountId, options = {}) {
       rollback: async snapshot => {
         if (snapshot.auth === null) await fs.rm(authPath(), { force: true });
         else await atomicWriteAuth(snapshot.auth);
-        await mutateIndex(async index => { for (const key of Object.keys(index)) delete index[key]; Object.assign(index, snapshot.index); });
+        await mutateIndex(async index => {
+          index.activeAccountId = snapshot.activeAccountId;
+          const target = index.accounts.find(item => item.id === accountId);
+          if (target) target.lastSwitchedAt = snapshot.targetLastSwitchedAt;
+        });
       },
     }, reportSwitch);
     return await currentState();
@@ -3548,6 +3587,13 @@ function emptyLocalUsage(since = null) {
 
 function localStoredQuotaSnapshot(snapshot) {
   if (!snapshot || snapshot.source === QUOTA_MODE_ONLINE || snapshot.schemaVersion !== 2) return null;
+  // Older versions could cache a model bucket at the root. Every account reader
+  // must filter it before merging windows, estimating usage or carrying resets.
+  if ((snapshot.limitId || "codex") !== "codex") {
+    const main = snapshot.additional?.find(bucket => bucket?.limitId === "codex");
+    if (!main) return null;
+    snapshot = { ...main, schemaVersion: 2 };
+  }
   const session = rateWindowHasDisplayData(snapshot.session) ? snapshot.session : null;
   const weekly = rateWindowHasDisplayData(snapshot.weekly) ? snapshot.weekly : null;
   const strippedSession = !!snapshot.session && !session;
@@ -3656,12 +3702,13 @@ async function saveAccountResetCredits(accountId, reset) {
 
 function buildAccountQuotaSnapshot(quota, previous) {
   const {calibration, ...snapshot} = quota;
-  if (previous?.schemaVersion === 2) {
+  const sameBucket = previous?.schemaVersion === 2 && (previous.limitId || "codex") === (snapshot.limitId || "codex");
+  if (sameBucket) {
     for (const key of ['session', 'weekly']) {
       snapshot[key] = selectWindow(previous[key], snapshot[key], previous.checkedAt, snapshot.checkedAt);
     }
   }
-  return {...snapshot, resetCredits: newestResetCredits(snapshot.resetCredits, previous?.schemaVersion === 2 ? previous.resetCredits : null), schemaVersion:2};
+  return {...snapshot, resetCredits: newestResetCredits(snapshot.resetCredits, sameBucket ? previous.resetCredits : null), schemaVersion:2};
 }
 
 function windowLearningSample(previousSnapshot, nextQuota, kind) {
@@ -4038,6 +4085,7 @@ function createWidgetWindow() {
     },
   });
   hardenWindowNavigation(widgetWindow);
+  widgetWindow.setAlwaysOnTop(widgetAlwaysOnTop, isWindows ? 'pop-up-menu' : 'floating');
   widgetWindow.setVisibleOnAllWorkspaces(widgetAlwaysOnTop, { visibleOnFullScreen: false });
   widgetWindow.on("close", (event) => {
     if (isQuitting) return;
@@ -4062,7 +4110,8 @@ function createWidgetWindow() {
 function setWidgetTopmost(pinned) {
   widgetAlwaysOnTop = pinned === true;
   const win = createWidgetWindow();
-  win.setAlwaysOnTop(widgetAlwaysOnTop);
+  // Windows' floating level moves behind the taskbar and can lose native topmost status.
+  win.setAlwaysOnTop(widgetAlwaysOnTop, isWindows ? 'pop-up-menu' : 'floating');
   win.setVisibleOnAllWorkspaces(widgetAlwaysOnTop, { visibleOnFullScreen: false });
   return { ok: true, pinned: widgetAlwaysOnTop };
 }

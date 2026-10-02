@@ -55,9 +55,11 @@ async function load(){
   if(busy||loading){loadPending=true;return}loading=true;const epoch=loadEpoch;
   try{
     if(demo)demoData.settings.proFiveHourEnabled=localStorage.getItem('demo-pro-five-hour')==='1';
-    const [next,nextUsage]=demo?[demoData,{daily:[{day:stats.dayKey(new Date()),tokenUsage:{totalTokens:13390000},sessions:9}]}]:await Promise.all([api.getState(),api.getStatistics()]);
+    const results=await Promise.allSettled(demo?[demoData,{daily:[{day:stats.dayKey(new Date()),tokenUsage:{totalTokens:13390000},sessions:9}]}]:[api.getState(),api.getStatistics()]);
     if(busy||epoch!==loadEpoch){loadPending=true;return}
-    state=next;usage=nextUsage;render();
+    if(results[0].status==='fulfilled')state=results[0].value;
+    if(results[1].status==='fulfilled')usage=results[1].value;
+    render();const failed=results.find(result=>result.status==='rejected');if(failed)throw failed.reason;
   }catch(e){notify(e.message)}finally{loading=false;if(loadPending&&!busy){loadPending=false;load()}}
 }
 function finishBusy(){setBusy(false);if(loadPending){loadPending=false;load()}}

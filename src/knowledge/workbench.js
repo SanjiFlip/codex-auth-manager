@@ -4,7 +4,7 @@ const {MAX_INPUT_CHARS,MAX_SESSIONS,splitMaterials,estimatePlan,distill,digest}=
 const {memoryJobStore}=require('./jobs');
 function redact(text){return text.replace(/\b(?:sk-[A-Za-z0-9_-]{16,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g,'[已隐藏令牌]').replace(/((?:access_token|refresh_token|api_key|password)\s*["']?\s*[:=]\s*["']?)[^\s"',}]+/gi,'$1[已隐藏]');}
 function createWorkbench({library,store,execute,withAccount,resolveModel,jobs=memoryJobStore(),report=()=>{}}){
-  let active=null,state={phase:'idle'},saved=null,loading;
+  let active=null,state={phase:'idle'},saved=null,loading,discarding=false;
   const publish=next=>{state=next;report(next)};
   const summary=job=>({jobId:job.id,title:job.request.title,model:job.modelSelection.model,reasoningEffort:job.modelSelection.reasoningEffort,completed:job.completed||0,totalCalls:job.plan.calls,resumable:true});
   async function ready(){if(!loading)loading=(async()=>{saved=await jobs.load();if(saved&&!active)publish({phase:'paused',...summary(saved),message:'检测到未完成任务，可从已保存的检查点继续。'});})();try{await loading}catch(e){loading=null;throw e;}}
@@ -22,7 +22,7 @@ function createWorkbench({library,store,execute,withAccount,resolveModel,jobs=me
     return {chunks:splitMaterials(materials),sources,chars};
   }
   function launch(request,resume){
-    if(active)throw Error('已有蒸馏任务正在运行。');if(saved&&!resume)throw Error('已有可恢复任务，请先继续或放弃。');
+    if(active||discarding)throw Error('已有蒸馏任务正在运行或放弃中。');if(saved&&!resume)throw Error('已有可恢复任务，请先继续或放弃。');
     const job={abort:new AbortController()};active=job;publish({phase:'preparing',...(saved?summary(saved):{}),startedAt:new Date().toISOString()});
     job.done=(async()=>{try{
       await ready();if(saved&&!resume)throw Error('已有可恢复任务，请先继续或放弃。');if(resume&&!saved)throw Error('没有可恢复的任务。');
@@ -51,7 +51,7 @@ function createWorkbench({library,store,execute,withAccount,resolveModel,jobs=me
     ready,state:()=>state,busy:()=>!!active,
     async preview(request){await ready();if(saved)throw Error('已有可恢复任务，请先继续或放弃。');const prepared=await prepare(request);return {...estimatePlan(prepared.chunks.length),chars:prepared.chars,sessions:prepared.sources.length,messages:prepared.sources.reduce((n,s)=>n+s.messages.length,0)};},
     start:request=>launch(request,false),resume:()=>launch(null,true),
-    async discard(){if(active)throw Error('请先暂停任务。');await ready();if(saved){await jobs.clear(saved.id);saved=null;}publish({phase:'idle'});return state;},
+    async discard(){if(active)throw Error('请先暂停任务。');if(discarding)throw Error('正在放弃任务，请稍后重试。');discarding=true;try{await ready();if(saved){await jobs.clear(saved.id);saved=null;}publish({phase:'idle'});return state;}finally{discarding=false}},
     async cancel(){if(active){active.abort.abort();await active.done}return state;},
   };
 }

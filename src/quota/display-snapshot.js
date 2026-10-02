@@ -1,13 +1,11 @@
 // Compare event timestamps, not the time an old snapshot was read from disk.
 const time=value=>Number.isFinite(Date.parse(value))?Date.parse(value):0;
 const {selectWindow}=require('./select-window');
+const accountBucket=snapshot=>snapshot&&[snapshot,...(snapshot.additional||[])].find(bucket=>bucket&&(bucket.limitId||'codex')==='codex')||null;
 function displaySnapshot(official,local){
+  official=accountBucket(official);
+  local=accountBucket(local);
   if(!official&&!local)return null;
-  // A model-specific bucket is independent of the main account allowance.
-  if(official&&local){
-    const id=official.limitId||'codex';
-    local=[local,...(local.additional||[])].find(bucket=>(bucket.limitId||'codex')===id)||null;
-  }
   const result={...(official||local)};
   let latest=0,source=official?.source||local?.source;
   for(const key of ['session','weekly']){
@@ -18,7 +16,10 @@ function displaySnapshot(official,local){
     result[key]=window?{...window}:null;
     if(window){
       // Local logs use Unix seconds; official snapshots already use ISO dates.
-      if(typeof window.resetsAt==='number')result[key].resetsAt=new Date(window.resetsAt*1000).toISOString();
+      if(typeof window.resetsAt==='number'){
+        const date=new Date(window.resetsAt*1000);
+        result[key].resetsAt=window.resetsAt>=0&&Number.isFinite(date.getTime())?date.toISOString():null;
+      }
       const stamp=fromLocal?bt:at;
       if(stamp>=latest){latest=stamp;source=fromLocal?local.source:official.source;}
     }

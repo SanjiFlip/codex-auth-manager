@@ -17,6 +17,13 @@ test('Markdown code and URLs remain untouched, Unicode segments fit service byte
   const text='---\nname: test\n---\n# Research\n```js\nconst secret = "unchanged";\n```\nUse `run()` and https://example.com/path\n'+'Long text 文😀 '.repeat(150);
   const pieces=translationPieces(text);assert.equal(pieces.map(p=>p.text).join(''),text);assert.ok(pieces.filter(p=>p.translate).every(p=>Buffer.byteLength(p.text)<=450));assert.ok(!pieces.filter(p=>p.translate).some(p=>p.text.includes('secret')||p.text.includes('https://')||p.text.includes('run()')||p.text.includes('name:')));
 });
+test('translation keeps nested fence examples and invalid closing fences out of requests',async()=>{
+  const code='````markdown\n```javascript\nconst synthetic = "keep code intact";\n```\n```` trailing text is still code\nmore synthetic code\n````';
+  const sent=[];const translator=createTranslator({interval:0,fetcher:async url=>{sent.push(new URL(url).searchParams.get('text[]'));return success('译文');}});
+  const result=await translator.translate({id:'nested-fences',text:'Translate this introduction\n'+code+'\nTranslate this conclusion',providers:['suapi']});
+  assert.equal(result.text,'译文\n'+code+'\n译文');
+  assert.deepEqual(sent,['Translate this introduction','Translate this conclusion']);
+});
 test('cancellation aborts network without retrying another service',async()=>{
   let started,abortSeen=false;const ready=new Promise(resolve=>started=resolve);
   const translator=createTranslator({interval:0,fetcher:async(url,options)=>new Promise((resolve,reject)=>{started();options.signal.addEventListener('abort',()=>{abortSeen=true;reject(Error('aborted'))})})});

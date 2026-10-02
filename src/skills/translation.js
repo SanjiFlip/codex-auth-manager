@@ -84,7 +84,7 @@ function translationPieces(text){
   for(const line of text.split(/(\r?\n)/)){
     if(/^\r?\n$/.test(line)){pieces.push({text:line});continue;}
     if(frontmatter){pieces.push({text:line});if(lineNumber++>0&&/^---\s*$/.test(line))frontmatter=false;continue;}
-    const fence=line.match(/^\s*(`{3,}|~{3,})/);if(fence){if(!fenced)fenced=fence[1][0];else if(fence[1][0]===fenced)fenced=null;pieces.push({text:line});continue;}
+    const fence=line.match(/^\s*(`{3,}|~{3,})(.*)$/);if(fence){if(!fenced)fenced=fence[1];else if(fence[1][0]===fenced[0]&&fence[1].length>=fenced.length&&!fence[2].trim())fenced=null;pieces.push({text:line});continue;}
     if(fenced||/^ {4}|^\t/.test(line)||!/[A-Za-z]{3}/.test(line)){pieces.push({text:line});continue;}
     // Literal code, URLs and link destinations stay verbatim; labels and prose are translated.
     for(const part of line.split(/(`+[^`]+`+|https?:\/\/[^\s<>]+|\]\([^)]*\))/g)){

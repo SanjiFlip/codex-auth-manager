@@ -59,3 +59,23 @@ test('corrupted checkpoint fails closed and preserves the file',async t=>{
   const f=await fixture(t,2);let calls=0;const wb=f.make(async req=>{if(++calls===2)throw Error('stop');return respond(req)});wb.start(f.request);await wait(wb);
   const job=await f.jobs().load(),file=path.join(f.root,'jobs',job.id,'extract-0.enc');await fs.writeFile(file,'corrupt');const next=f.make(async()=>{throw Error('unexpected model call')});await next.ready();next.resume();await wait(next);assert.equal(next.state().phase,'failed');assert.match(next.state().message,/损坏/);assert.equal(await fs.readFile(file,'utf8'),'corrupt');
 });
+test('discard reserves the task before awaiting checkpoint initialization or deletion',async t=>{
+  const f=await fixture(t,1);const first=f.make(async()=>{throw Error('synthetic pause')});
+  first.start(f.request);await wait(first);assert.equal(first.state().resumable,true);
+  let release;const deleting=new Promise(resolve=>{release=resolve});let clearing;
+  const clearStarted=new Promise(resolve=>{clearing=resolve}),jobs=f.jobs();
+  const wb=f.make(async()=>{throw Error('must not call model while discarding')},{jobs:{...jobs,clear:async id=>{clearing();await deleting;return jobs.clear(id);}}});
+  const discard=wb.discard();
+  assert.throws(()=>wb.resume(),/正在|放弃/);
+  await clearStarted;
+  assert.throws(()=>wb.start(f.request),/正在|放弃/);
+  await assert.rejects(wb.discard(),/正在|放弃/);
+  release();await discard;assert.equal(wb.state().phase,'idle');assert.equal(await f.jobs().load(),null);
+});
+test('failed discard releases its reservation and preserves the recoverable task',async t=>{
+  const f=await fixture(t,1),first=f.make(async()=>{throw Error('synthetic pause')});first.start(f.request);await wait(first);
+  const jobs=f.jobs();let fail=true;
+  const wb=f.make(respond,{jobs:{...jobs,clear:async id=>{if(fail){fail=false;throw Error('synthetic cleanup failure')}return jobs.clear(id);}}});
+  await assert.rejects(wb.discard(),/synthetic cleanup failure/);assert.ok(await jobs.load());
+  wb.resume();await wait(wb);assert.equal(wb.state().phase,'completed');assert.equal((await f.store.list()).length,1);
+});
