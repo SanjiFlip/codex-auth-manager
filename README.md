@@ -6,7 +6,7 @@
 
 Windows / macOS Codex 桌面端的本地多账号管理工具，并集成 Windows Antigravity 账号切换。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，采用中性灰与系统蓝主题，提供 Codex Meter 悬浮窗、蒸馏工作台与本地记忆库。
 
-> 非 OpenAI 官方产品。v0.7.0 预览版正在准备发布；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
+> 非 OpenAI 官方产品。当前 v0.7.0 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
 ## v0.7.0 · Antigravity 账号页与 Codex 切换修复
 
@@ -108,7 +108,7 @@ Windows EXE 和两种 macOS 架构的 DMG / ZIP 提供一致的工作空间与�
 
 ## 下载安装包
 
-本次版本：**v0.7.0 预览版（发布准备中）**。发布完成后可按操作系统和处理器选择以下安装包；此前可从[所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)下载 v0.6.10。
+当前版本：**v0.7.0 预览版**。请按操作系统和处理器选择安装包。
 
 | 平台 | 系统要求 | 安装包 |
 | --- | --- | --- |
@@ -205,14 +205,14 @@ npm start
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
 
-添加账号与查询官方额度需要本机 Codex CLI；本次隔离协议与配置验证版本为 `codex-cli 0.160.0`（同时通过本机 0.159.2 检查）。Windows 支持 Store / MSIX 安装；macOS 支持安装在 /Applications 或 ~/Applications 下的 Codex.app / ChatGPT.app。
+添加 Codex 账号与查询官方额度需要本机 Codex CLI；历史隔离协议与配置验证基线为 `codex-cli 0.160.0`（同时通过 0.159.2 检查），具体版本和日期见[验证记录](docs/VALIDATION.md)。Windows 支持 Store / MSIX 安装；macOS 支持安装在 /Applications 或 ~/Applications 下的 Codex.app / ChatGPT.app。
 
 macOS 支持从 PATH、`/opt/homebrew/bin`、`/usr/local/bin`、`~/.local/bin` 查找 Codex CLI。Finder 启动的应用不会自动继承交互式 shell 配置；仅安装在 nvm 私有目录中的 CLI 需要加入应用可见的 PATH，或安装到上述可发现目录。
 
 ## 主要功能
 
 - Codex 与 Windows Antigravity 独立账号页；Antigravity 支持加密保存、搜索、重命名、归档移除、切换重启、历史备份与中断恢复。
-- 官方浏览器登录：独立临时 CODEX_HOME，授权成功后加密保存，可取消和重新打开授权页。
+- Codex 官方浏览器登录：独立临时 CODEX_HOME，授权成功后加密保存，可取消和重新打开授权页。
 - 账号保存、重命名、搜索、筛选、删除；重复身份更新已有记录。
 - 切换前校验、正常关闭 Codex、确认退出、保存当前最新凭据、原子替换、重新启动；失败恢复原凭据。
 - Pro / Pro Lite / Pro Max 分开显示，官方套餐与额度按账号查询或批量刷新。

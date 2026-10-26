@@ -1,6 +1,18 @@
 # 验证记录
 
-## 未发布：Codex 切换修复与 Antigravity 集成（2026-10-26）
+## v0.7.0 发布验证（2026-10-26）
+
+- [v0.7.0 Release](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.7.0) 已发布，延续预览版状态。Windows x64 安装程序与 macOS arm64 / x64 的 DMG、ZIP 共五个产物上传完成；版本标签对应源码提交 `e342693`。
+- [三平台源码检查 40308212178](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/40308212178) 全部通过。Windows 200 项单元测试中 199 通过，1 项 macOS 原生测试按平台跳过；两种 Mac 的源码、账号、窗口、构建及包内应用检查通过。
+- [发布任务 40308967243](https://github.com/SanjiFlip/codex-auth-manager/actions/runs/40308967243) 全部通过：Windows 在 GitHub runner 重新构建，并以隔离合成凭据验证实际 EXE、IPC、DPAPI 和 AGV 打包界面；包内 Antigravity 原生测试 20/20 通过。
+- Windows 解包目录与两个 Mac ZIP 中各 84 个源码和说明文件已直接逐字节比较，运行时 package 元数据及版本一致。DMG 和 NSIS 安装器的验证依据为上述已通过的构建、来源、名称、非空及上传大小，不声称已逐文件展开安装器验证。
+- 发布前核对草稿与五个上传产物的名称、大小和完成状态，发布后核对标签仍指向同一源码提交。生产依赖审计为 0 条已知漏洞。
+- 五个公开下载链接均以匿名 HEAD 请求返回 HTTP 200，响应文件大小与 Release 上传记录一致。
+- 发布验收暴露当前登录短暂不可读后悬浮窗误保留自动回退选择的问题；确定性回归先复现，修复后四项状态转换测试及原有账号显示检查通过。原有托盘恢复夹具同步改为真实点击账号选项，保留全部恢复和强制确认断言。
+- README 已更新九张 v0.7.0 隔离演示截图，包括 Codex、Antigravity、合成中断恢复、用量、额度、设置及三种悬浮窗视图；图中无真实账号或会话数据。
+- 真实账号在线身份验收仍未执行。Antigravity 账号切换仅支持 Windows；Windows 未签名，Mac 仅 ad-hoc 签名且未公证。
+
+## 功能开发与集成验证：Codex 切换修复与 Antigravity（2026-10-26）
 
 - Windows 静态检查通过；196 项单元测试中 195 通过，1 项 macOS 原生测试按平台跳过，无失败。
 - Antigravity 原生隔离测试 20/20 通过，覆盖 DPAPI、唯一测试凭据目标、最新凭据保存、启动失败回滚、恢复记录、进程归属与路径保护；真实 Antigravity 凭据写入为 0。
