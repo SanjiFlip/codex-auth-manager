@@ -41,6 +41,7 @@ function demoApi() {
 const api=isDemo?demoApi():window.codexAuth;
 if(isDemo){api.getVersion=async()=>document.querySelector('.version small').textContent.match(/v([\d.]+)/)?.[1]||'演示';api.checkForUpdates=async()=>({currentVersion:appVersion,latestVersion:appVersion,comparison:0,prerelease:true,installer:null});api.openUpdate=async()=>toast('演示模式不会打开外部页面。');api.exportStatistics=async()=>{toast('演示模式不导出本机数据。');return false;};}
 const knowledge=window.createKnowledgeUI({api,demo:isDemo,toast});
+const antigravityUI=window.createAntigravityUI({api,demo:isDemo,toast});
 const skillsUI=window.createSkillsUI({api,demo:isDemo,toast});
 if(window.codexAuth)document.body.classList.add('desktop');
 let renderedPage=null,lastRenderedKey='';
@@ -72,7 +73,7 @@ function renderAccounts() {
   const current=state.accounts.find(a=>a.isActive)|| (state.current?.exists&&!state.current.error&&(state.current.email||state.current.userId||state.current.subject)?{...state.current,displayName:'当前登录 · 尚未保存'}:null);
   const q=current?.quotaSnapshot;
   const overview=renderRichOverview(current),overviewAt=overview.indexOf('<div class="overview-row">');
-  $('#content').innerHTML=heading('账号管理','每个身份，各就其位。轻松管理你的 Codex 账号。',button('悬浮窗','widget','','chart')+button('保存当前账号','save','','download')+button('添加账号','add','primary','plus'))+
+  $('#content').innerHTML=heading('Codex','每个身份，各就其位。轻松管理你的 Codex 账号。',button('悬浮窗','widget','','chart')+button('保存当前账号','save','','download')+button('添加账号','add','primary','plus'))+
     (state.credentialMode!=='file'?`<div class="notice"><span>当前存储模式：${escape(state.credentialMode||'未知')}。切换功能需要文件凭据管理；启用后需重新登录或保存当前登录。</span>${button('前往设置','settings')}</div>`:'')+
     (state.switchStatus?.phase!=='idle'&&state.switchStatus?.message?`<div class="flow">${icon('info')}<span>${escape(state.switchStatus.message)}</span></div>`:'')+
     `<section class="active-panel"><div><div class="section-label">● &nbsp; 当前凭据账号 <span style="opacity:.6">/ CURRENT ACCOUNT</span></div>${current?identity(current,0,true):'<div class="identity"><div class="avatar forest">C</div><div><h2>尚未连接账号</h2><p>添加账号，让工作准备就绪</p></div></div>'}<div class="active-note">${icon('shield')} ${current?'以本机凭据为准 · 应用内身份请在 Codex 核对':'支持官方浏览器授权 · 无需输入密码到本工具'}</div></div><div class="active-meters">${sessionMeter(current,true)}${meter('周剩余额度',q?.weekly,true,current?.quotaSnapshotUpdatedAt)}</div></section>`+
@@ -126,8 +127,8 @@ function render() {
   if(renderedPage!==page){$('.page-scroll').scrollTop=0;renderedPage=page}
   $('#nav-count').textContent=state.accounts.length;
   document.querySelectorAll('[data-page]').forEach(el=>{el.classList.toggle('active',el.dataset.page===page);if(el.dataset.page===page)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current')});
-  $('#breadcrumb').textContent={accounts:'账号管理',usage:'用量概览',quotas:'订阅额度',diagnostics:'环境体检',activity:'操作记录',settings:'应用设置',distill:'蒸馏工作台',memory:'记忆库',skills:'Skills 管理'}[page];
-  if(page==='skills')skillsUI.render($('#content')); else if(page==='distill'||page==='memory')knowledge.render(page,$('#content')); else if(page==='accounts')renderAccounts(); else if(page==='usage')renderUsage(); else if(page==='settings')renderSettings(); else if(page==='quotas')renderQuotas(); else if(page==='diagnostics')renderDiagnostics();
+  $('#breadcrumb').textContent={antigravity:'Antigravity 账号',accounts:'Codex',usage:'用量概览',quotas:'订阅额度',diagnostics:'环境体检',activity:'操作记录',settings:'应用设置',distill:'蒸馏工作台',memory:'记忆库',skills:'Skills 管理'}[page];
+  if(page==='antigravity')antigravityUI.render($('#content')); else if(page==='skills')skillsUI.render($('#content')); else if(page==='distill'||page==='memory')knowledge.render(page,$('#content')); else if(page==='accounts')renderAccounts(); else if(page==='usage')renderUsage(); else if(page==='settings')renderSettings(); else if(page==='quotas')renderQuotas(); else if(page==='diagnostics')renderDiagnostics();
   else $('#content').innerHTML=heading('操作记录','查看本次启动以来的操作结果与问题记录。密码和令牌不会出现在这里。')+`<div class="panel"><h2>本次会话</h2>${events.length?events.map(e=>`<div class="log-entry"><time>${escape(e.time)}</time><span>${escape(e.message)}</span></div>`).join(''):'<div class="k-empty"><span class="k-empty-symbol">✓</span><strong>工作空间已就绪</strong><p>账号切换、额度刷新与管理结果会记录在这里。<br>记录仅保留在本次工具会话中。</p></div>'}</div>`;
   lastRenderedKey=viewKey(state,statistics);
   if(focus){const input=document.getElementById(focus.id);if(input){input.focus({preventScroll:true});if(focus.start!==null)input.setSelectionRange(focus.start,focus.end)}}
@@ -149,7 +150,7 @@ async function refreshLive(){
 function refreshLocalInBackground(){
   api.refreshLocalData?.().catch(()=>{const status=$('.status-pill');status.title='本地读取失败，保留上次快照；稍后重试。'});
 }
-function liveTick(){refreshLive();refreshLocalInBackground()}
+function liveTick(){refreshLive();refreshLocalInBackground();if(page==='antigravity')antigravityUI.refresh()}
 async function run(task) {
   if(busy)return;busy=true;liveEpoch++;
   const dialog=$('#modal'),controls=dialog.open?[...dialog.querySelectorAll('button,input,select,textarea')].map(node=>[node,node.disabled]):[];
@@ -220,7 +221,7 @@ async function act(action,id) {
   if(action.startsWith('portable-'))return run(async()=>{const password=$('#password').value;await api[action==='portable-import'?'importPortable':'exportPortable'](password);$('#password').value='';$('#modal').close();await refresh()});
 }
 document.addEventListener('click',e=>{
-  const nav=e.target.closest('[data-page]'); if(nav){e.preventDefault();page=nav.dataset.page;render();return}
+  const nav=e.target.closest('[data-page]'); if(nav){e.preventDefault();page=nav.dataset.page;render();if(page==='antigravity')antigravityUI.refresh();return}
   const f=e.target.closest('[data-filter]');if(f){filter=f.dataset.filter;render();return}
   const action=e.target.closest('[data-action]');if(action&&!action.disabled)act(action.dataset.action,action.dataset.id).catch(e=>toast(e.message));
 });
@@ -232,6 +233,7 @@ if(api){
   api.getVersion?.().then(version=>{appVersion=version;$('.version small').textContent='v'+version+' · 非官方工具';if(page==='settings')renderSettings()}).catch(()=>{});
   api.onStateChanged?.(event=>{
     if(event.scope==='knowledge')knowledge.update(event);
+    else if(event.scope==='antigravity')antigravityUI.update(event);
     else if(event.scope==='login')loginView(event);
     else if(event.scope==='switch'){state.switchStatus=event;if(page==='accounts')renderAccounts()}
     else {refreshLive();if(event.scope==='accounts')refreshLocalInBackground()}

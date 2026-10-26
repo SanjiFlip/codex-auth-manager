@@ -4560,6 +4560,11 @@ function registerIpc() {
     if(event.sender!==mainWindow?.webContents||event.senderFrame!==event.sender.mainFrame)throw Error('不允许从此窗口访问知识库。');
     return handler(...args);
   });
+  const antigravity=require('./antigravity').createAntigravity({report:status=>broadcastStateChanged({scope:'antigravity',...status})});
+  knowledgeHandle('antigravity:execute',async input=>{
+    try{return await antigravity(input)}
+    catch(error){broadcastStateChanged({scope:'antigravity',phase:'error',message:error.message});throw error}
+  });
   knowledgeHandle('updates:check',()=>updateChecker.check());
   knowledgeHandle('updates:open',async target=>{
     if(!['release','installer'].includes(target))throw Error('无效的更新操作。');

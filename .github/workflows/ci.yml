@@ -28,6 +28,11 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
+      - run: npm run build:native
+      - run: |
+          New-Item -ItemType Directory -Force output/antigravity | Out-Null
+          & ./src/antigravity/AntigravityBridge.exe --self-test output/antigravity/self-test.json
+          if ($LASTEXITCODE -ne 0) { throw "Antigravity native tests failed" }
       - run: npm run check
       - run: npm test
 

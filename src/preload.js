@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("codexAuth", {
+  antigravity: input => ipcRenderer.invoke("antigravity:execute", input),
   skillsTranslate:input=>ipcRenderer.invoke('skills:translate',input),
   onSkillsTranslationProgress:callback=>{
     const handler=(_event,payload)=>callback(payload);

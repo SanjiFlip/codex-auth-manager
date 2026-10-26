@@ -19,3 +19,7 @@ The Skills metadata parser uses [yaml 2.9.1](https://github.com/eemeli/yaml), li
 The public repository snapshot fallback uses [yauzl 3.4.0](https://github.com/thejoshwolfe/yauzl), licensed under MIT. Its package license is retained in bundled dependencies. Repository snapshots come directly from GitHub codeload at a fixed commit, with Git blob hashes checked during installation.
 
 Optional Skills translation independently integrates the public, keyless [SuAPI translation endpoint](https://suapi.net/doc/51) and [MyMemory API](https://mymemory.translated.net/doc/spec.php). These are external services, not bundled translation engines; their terms and quotas remain separate. No translation service client code or browser session tokens are embedded. User-selected text is sent only after opt-in and an explicit translation action.
+
+## Antigravity Windows 切换组件
+
+集成本机独立 Antigravity Account Switcher Desktop 的 Credentials、Vault、SwitchEngine 与进程检查代码。原项目来源为 Doomd/antigravity-account-switcher，MIT 许可证保留于 `src/antigravity/LICENSE.txt`。新增 Bridge.cs 将原生凭据操作接入 Electron，前端只接收身份元数据。

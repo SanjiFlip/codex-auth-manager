@@ -7,6 +7,8 @@ output/
 auth.json
 *.dpapi
 *.codexauth
+*.agvault
+desktop-runtimes.json
 .env*
 
 # Local credentials, metadata, caches and exports
