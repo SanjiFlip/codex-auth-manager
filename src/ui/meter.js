@@ -1,7 +1,7 @@
 'use strict';
 const demo=!window.codexAuth&&new URLSearchParams(location.search).get('demo')==='1';
 const api=window.codexAuth,$=s=>document.querySelector(s),stats=window.UsageStatistics;
-let state={accounts:[]},usage=null,busy=false,loading=false,loadEpoch=0,selectedId=null,renderedCurrentId=null,pendingTargetId=null,loadPending=false,messageTimer;
+let state={accounts:[]},usage=null,busy=false,loading=false,loadEpoch=0,selectedId=null,selectionExplicit=false,pendingTargetId=null,loadPending=false,messageTimer;
 const demoData={settings:{},accounts:[{id:'a',displayName:'日常工作',planType:'pro',isActive:true,quotaSnapshot:{session:{usedPercent:21,resetsAt:new Date(Date.now()+16860000).toISOString()},weekly:{usedPercent:3,resetsAt:new Date(Date.now()+600000000).toISOString()},resetCredits:1,checkedAt:new Date().toISOString()}},{id:'b',displayName:'研究与探索',planType:'prolite',isActive:false,quotaSnapshot:{weekly:{usedPercent:32,resetsAt:new Date(Date.now()+380000000).toISOString()},resetCredits:0,checkedAt:new Date().toISOString()}},{id:'c',displayName:'创作空间',planType:'plus',isActive:false,quotaSnapshot:{session:{usedPercent:38,resetsAt:new Date(Date.now()+7200000).toISOString()},weekly:{usedPercent:48,resetsAt:new Date(Date.now()+250000000).toISOString()},checkedAt:new Date().toISOString()}}]};
 function notify(message){clearTimeout(messageTimer);$('#message').textContent=message;$('#message').hidden=!message;if(message)messageTimer=setTimeout(()=>{$('#message').hidden=true},6500)}
 function currentAccount(){
@@ -30,7 +30,7 @@ function renderOptions(){
     const copy=document.createElement('span');copy.className='option-copy';const name=document.createElement('span');name.className='option-name';name.textContent=account.displayName;name.title=account.displayName;
     const detail=document.createElement('span');detail.className='option-detail';detail.textContent=window.planLabel(account.planType)+(account.isUnsaved?' · 当前登录，未保存':account.isActive?' · 当前使用':' · 已保存');copy.append(name,detail);
     const check=document.createElement('span');check.className='option-check';check.setAttribute('aria-hidden','true');check.textContent=account.id===selectedId?'✓':'';
-    option.append(avatar,copy,check);option.onclick=()=>{selectedId=account.id;updateSelection();closeMenu(true)};list.append(option);
+    option.append(avatar,copy,check);option.onclick=()=>{selectedId=account.id;selectionExplicit=!account.isActive;updateSelection();closeMenu(true)};list.append(option);
   }
 }
 function openMenu(direction=0){if(busy||!selectableAccounts().length)return;renderOptions();$('#account-menu').hidden=false;$('#account-trigger').setAttribute('aria-expanded','true');const options=[...$('#account-options').children];const selected=options.findIndex(el=>el.dataset.id===selectedId);options[direction<0?options.length-1:Math.max(0,selected)]?.focus()}
@@ -46,8 +46,9 @@ function render(){
   $('#session-reset').textContent=stats.resetTime(primary?.resetsAt);$('#weekly-reset').textContent=stats.resetTime(q?.weekly?.resetsAt);
   const summary=stats.summarize(usage);$('#tokens').textContent=stats.compact(summary.todayTokens).replace('.0万','万');$('#sessions').textContent=stats.compact(summary.todaySessions);$('#resets').textContent=stats.compact(q?.resetCredits);
   // Follow current-account changes; preserve only a separately selected switch target.
-  if(selectedId===renderedCurrentId||!selectableAccounts().some(a=>a.id===selectedId))selectedId=account?.id||state.accounts[0]?.id||null;
-  renderedCurrentId=account?.id||null;
+  if(!selectionExplicit||selectedId===account?.id||!selectableAccounts().some(a=>a.id===selectedId)){
+    selectedId=account?.id||state.accounts[0]?.id||null;selectionExplicit=false;
+  }
   updateSelection();if(!$('#account-menu').hidden){const focused=document.activeElement?.dataset?.id;renderOptions();if(focused)[...$('#account-options').children].find(el=>el.dataset.id===focused)?.focus({preventScroll:true})}
   $('#freshness').textContent=(demo?'演示数据':q?.source==='official-app-server'?'官方快照':'本地快照')+' · '+(q?.checkedAt?new Date(q.checkedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}):'待更新');
 }

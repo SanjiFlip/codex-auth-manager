@@ -124,7 +124,7 @@ Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple
 
 ## 最新更新 · v0.7.0
 
-本版集成 Windows Antigravity 账号管理，补齐切换进度、失败回滚、中断恢复、强制关闭二次确认和外部身份刷新；Codex 修复安装位置变化、退出重试及管理器重启后的后台进程漏检。详见 [更新日志](CHANGELOG.md)。
+本版集成 Windows Antigravity 账号管理，补齐切换进度、失败回滚、中断恢复、强制关闭二次确认和外部身份刷新；Codex 修复安装位置变化、退出重试及管理器重启后的后台进程漏检。悬浮窗在当前凭据短暂不可读后继续跟随恢复的身份，同时保留用户主动选择的切换目标。详见 [更新日志](CHANGELOG.md)。
 
 各版本 Windows 与 macOS 构建及打包检查结果见 [验证记录](docs/VALIDATION.md) 和 [GitHub Actions](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)。测试使用隔离账户库、合成凭据与模型返回，不等于真实账号在线身份验收。详见 [更新日志](CHANGELOG.md) 和 [验证记录](docs/VALIDATION.md)。
 
