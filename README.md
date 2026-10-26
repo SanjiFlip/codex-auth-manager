@@ -1,16 +1,16 @@
 # Codex Auth Manager
 
 [![构建检查](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)
-[![版本 v0.6.10](https://img.shields.io/badge/version-0.6.10-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.10)
+[![版本 v0.7.0](https://img.shields.io/badge/version-0.7.0-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.7.0)
 [![许可证 MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，采用中性灰与系统蓝主题，提供 Codex Meter 悬浮窗、蒸馏工作台与本地记忆库。
 
-> 非 OpenAI 官方产品。当前 v0.6.10 为预览版；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
+> 非 OpenAI 官方产品。v0.7.0 预览版正在准备发布；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
-## 开发版：Antigravity 账号页与 Codex 切换修复
+## v0.7.0 · Antigravity 账号页与 Codex 切换修复
 
-当前 main 分支新增以下功能，尚未包含在已发布的 v0.6.10 安装包中：侧边栏以「Codex」「Antigravity」区分账号管理；Windows Antigravity 支持添加引导、加密保存、搜索、重命名、归档移除、切换重启和备份恢复，并沿用原独立切换器的账号库。切换提供进度、启动失败回滚、中断恢复及强制关闭二次确认，失败后重新读取实际状态。macOS 显示暂不支持；[使用说明](docs/ANTIGRAVITY.md)。
+侧边栏以「Codex」「Antigravity」区分账号管理；Windows Antigravity 支持添加引导、加密保存、搜索、重命名、归档移除、切换重启和备份恢复，并沿用原独立切换器的账号库。切换提供进度、启动失败回滚、中断恢复及强制关闭二次确认，失败后重新读取实际状态。macOS 显示暂不支持；[使用说明](docs/ANTIGRAVITY.md)。
 
 Codex 退出检查保留预检启动位置与安装目录，按 PID、完整路径和精确启动时间识别所属后台进程，并保留必要的本机进程恢复信息，支持退出重试和管理器重启。验证结果和在线身份验收边界见 [验证记录](docs/VALIDATION.md)。
 
@@ -108,23 +108,23 @@ Windows EXE 和两种 macOS 架构的 DMG / ZIP 提供一致的工作空间与�
 
 ## 下载安装包
 
-当前版本：**v0.6.10 预览版**。请按操作系统和处理器选择安装包。
+本次版本：**v0.7.0 预览版（发布准备中）**。发布完成后可按操作系统和处理器选择以下安装包；此前可从[所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)下载 v0.6.10。
 
 | 平台 | 系统要求 | 安装包 |
 | --- | --- | --- |
-| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.10/Codex-Auth-Manager-Setup-0.6.10-x64.exe) |
-| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.10/Codex-Auth-Manager-0.6.10-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.10/Codex-Auth-Manager-0.6.10-arm64.zip) |
-| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.10/Codex-Auth-Manager-0.6.10-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.10/Codex-Auth-Manager-0.6.10-x64.zip) |
+| Windows x64 | Windows 10 / 11 | [EXE 安装程序](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.7.0/Codex-Auth-Manager-Setup-0.7.0-x64.exe) |
+| macOS Apple Silicon | macOS 14+，M 系列芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.7.0/Codex-Auth-Manager-0.7.0-arm64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.7.0/Codex-Auth-Manager-0.7.0-arm64.zip) |
+| macOS Intel | macOS 14+，Intel 芯片 | [DMG](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.7.0/Codex-Auth-Manager-0.7.0-x64.dmg) · [ZIP](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.7.0/Codex-Auth-Manager-0.7.0-x64.zip) |
 
-[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.6.10) · [SHA-256 校验文件](https://github.com/SanjiFlip/codex-auth-manager/releases/download/v0.6.10/SHA256SUMS-0.6.10.txt) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
+[发布说明](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.7.0) · [所有版本](https://github.com/SanjiFlip/codex-auth-manager/releases)
 
 Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple Developer ID 签名和公证。Mac 下载后把应用拖到 Applications；若被 Gatekeeper 拦截，请在确认下载来源后使用系统「隐私与安全性」中的打开选项，不要关闭系统安全保护。
 
 更新前从托盘或 macOS 菜单栏完全退出旧版管理工具。Windows 运行安装程序并选择原安装目录；Mac 将新版应用替换到 Applications。跨设备迁移请使用加密导出 / 导入，不要直接复制账户库。
 
-## 最新更新 · v0.6.10
+## 最新更新 · v0.7.0
 
-本版完善账号切换恢复、当前身份刷新、文件监听和窗口置顶，修复独立会话 Token 少计、模型额度混入及旧缓存兼容问题。额度估算算法升级为 5，旧校准不与新样本混用。另修复异步表单、键盘焦点、蒸馏任务竞争和翻译代码围栏解析。详见 [更新日志](CHANGELOG.md)。
+本版集成 Windows Antigravity 账号管理，补齐切换进度、失败回滚、中断恢复、强制关闭二次确认和外部身份刷新；Codex 修复安装位置变化、退出重试及管理器重启后的后台进程漏检。详见 [更新日志](CHANGELOG.md)。
 
 各版本 Windows 与 macOS 构建及打包检查结果见 [验证记录](docs/VALIDATION.md) 和 [GitHub Actions](https://github.com/SanjiFlip/codex-auth-manager/actions/workflows/ci.yml)。测试使用隔离账户库、合成凭据与模型返回，不等于真实账号在线身份验收。详见 [更新日志](CHANGELOG.md) 和 [验证记录](docs/VALIDATION.md)。
 
@@ -183,7 +183,7 @@ npm start
 - 演示：`npm run demo`，使用独立演示数据，没有真实账号 IPC。
 - Windows 构建：`npm run dist`，输出到 `release/`。
 - macOS 构建：在 Mac 上运行 `npm run dist:mac`，生成 arm64 / x64 的 DMG 与 ZIP。
-- 安装：构建后运行 `release/Codex Auth Manager Setup 0.6.10.exe`；更新时先退出旧版管理工具，再选择原安装目录。
+- 安装：构建后运行 `release/Codex Auth Manager Setup 0.7.0.exe`；更新时先退出旧版管理工具，再选择原安装目录。
 - 免安装：构建后使用 `release/win-unpacked/` 整个目录，不能只复制 EXE。
 
 Git 源码目录不包含构建产物，安装包通过本仓库 Releases 提供。
