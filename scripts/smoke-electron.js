@@ -73,7 +73,8 @@ const timer=setInterval(async()=>{
     trayResident=true;
     await trayMeter.webContents.executeJavaScript(`(async()=>{
       while(loading)await new Promise(r=>setTimeout(r,50));
-      await load();selectedId=${JSON.stringify(result.id)};render();
+      await load();document.querySelector('#account-trigger').click();
+      document.querySelector(${JSON.stringify('#account-options [data-id="'+result.id+'"]')}).click();
       document.querySelector('#switch-btn').click();document.querySelector('#confirm-switch').click();
       const end=Date.now()+5000;while(!document.querySelector('#exit-blocked').open&&Date.now()<end)await new Promise(r=>setTimeout(r,50));
       if(!document.querySelector('#exit-blocked').open)throw Error('Meter tray recovery missing');
