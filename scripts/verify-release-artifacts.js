@@ -3,13 +3,17 @@ const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_pro
 const {pipeline}=require('node:stream'),asar=require('@electron/asar'),yauzl=require('yauzl');
 const root=path.resolve(process.argv[2]||'output/publish-release'),version=require('../package.json').version;
 const source=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
-const files=cp.execFileSync('git',['ls-files','-z','src'],{encoding:'utf8'}).split('\0').filter(Boolean).concat(['package.json','docs/THIRD_PARTY.md','docs/ANTIGRAVITY.md']);
+const files=cp.execFileSync('git',['ls-files','-z','src'],{encoding:'utf8'}).split('\0').filter(Boolean).concat(['docs/THIRD_PARTY.md','docs/ANTIGRAVITY.md']);
 function compare(archive,workingTree){
   for(const file of files){
     const expected=workingTree?fs.readFileSync(file):cp.execFileSync('git',['show',source+':'+file]);
     assert.ok(asar.extractFile(archive,file.split('/').join(path.sep)).equals(expected),file+' differs in '+archive);
   }
-  assert.equal(JSON.parse(asar.extractFile(archive,'package.json')).version,version);
+  const metadata=JSON.parse(workingTree?fs.readFileSync('package.json'):cp.execFileSync('git',['show',source+':package.json']));
+  // electron-builder removes these development-only fields from the shipped package.
+  for(const key of ['scripts','devDependencies','build'])delete metadata[key];
+  assert.deepEqual(JSON.parse(asar.extractFile(archive,'package.json')),metadata,'Packaged runtime metadata differs');
+  assert.equal(metadata.version,version);
   return files.length;
 }
 function extractMac(archive,destination){
