@@ -6,7 +6,7 @@ async (page) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.setViewportSize({width:1380,height:1180});
-  await page.getByRole('heading',{name:'账号管理',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Codex',exact:true}).waitFor();
   await page.locator('.account-card').last().waitFor();
   if (await page.evaluate(() => Boolean(window.codexAuth))) throw Error('Screenshots require isolated browser demo');
   const capture = async name => {
@@ -18,6 +18,10 @@ async (page) => {
     await page.screenshot({path:`output/playwright/readme-${name}.png`,animations:'disabled'});
   };
   await capture('accounts');
+  await page.getByRole('button',{name:'Antigravity',exact:true}).click();
+  await page.getByRole('heading',{name:'Antigravity',exact:true}).waitFor();
+  await page.locator('.ag-card').last().waitFor();
+  await capture('antigravity');
   await page.getByRole('button',{name:'用量概览',exact:true}).click();
   await page.getByRole('heading',{name:'模型用量分布'}).waitFor();
   await capture('statistics');
@@ -42,5 +46,5 @@ async (page) => {
   await page.getByRole('button',{name:'切换主题'}).click();
   await page.getByRole('button',{name:'选择账号',exact:true}).click();
   await capture('meter-picker');
-  console.log('Captured seven README images using synthetic demo data.');
+  console.log('Captured eight README images using synthetic demo data.');
 }

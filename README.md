@@ -4,7 +4,7 @@
 [![版本 v0.7.0](https://img.shields.io/badge/version-0.7.0-blue)](https://github.com/SanjiFlip/codex-auth-manager/releases/tag/v0.7.0)
 [![许可证 MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Windows / macOS Codex 桌面端的本地多账号管理工具。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，采用中性灰与系统蓝主题，提供 Codex Meter 悬浮窗、蒸馏工作台与本地记忆库。
+Windows / macOS Codex 桌面端的本地多账号管理工具，并集成 Windows Antigravity 账号切换。基于 GboyCode/CodexAuth 的 Electron 与加密管理能力，参考 Mintimate/codex-auth-switch 的登录、额度与环境检查流程，采用中性灰与系统蓝主题，提供 Codex Meter 悬浮窗、蒸馏工作台与本地记忆库。
 
 > 非 OpenAI 官方产品。v0.7.0 预览版正在准备发布；Windows 未签名，macOS 仅 ad-hoc 签名；真实账号登录与桌面端切换仍需实际验收，详见下文限制。
 
@@ -102,9 +102,9 @@ Windows EXE 和两种 macOS 架构的 DMG / ZIP 提供一致的工作空间与�
 | --- | --- |
 | ![蒸馏工作台：选取会话消息并配置产物](docs/images/distillation.png) | ![记忆库：分类检索、编辑与导出](docs/images/memory.png) |
 
-| 账号工作空间 | 桌面悬浮窗 |
+| Codex 账号工作空间 | Antigravity 账号工作空间（Windows） |
 | --- | --- |
-| ![账号工作空间](docs/images/preview-accounts.png) | ![周额度悬浮窗](docs/images/preview-meter.png) |
+| ![Codex：当前凭据、额度和多账号卡片](docs/images/accounts.png) | ![Antigravity：保存账号、切换重启和备份](docs/images/antigravity.png) |
 
 ## 下载安装包
 
@@ -130,17 +130,34 @@ Windows 为未签名预览版；Mac 仅作本机 ad-hoc 签名，未进行 Apple
 
 ## 界面与功能预览
 
-以下基础页面截图来自 Electron 隔离演示，Windows 与 macOS 桌面应用使用同一套界面。账号、额度及用量均为示例数据，不包含真实账号信息；点击图片可查看原图。
+以下截图已更新为 v0.7.0，来自 Electron 隔离演示。账号、额度、备份及恢复状态均为合成数据，不包含真实凭据或个人会话；点击图片可查看原图。Codex 在 Windows 与 macOS 使用同一套界面，Antigravity 账号切换仅支持 Windows。
 
-### 账号管理 · 多个身份，一处管理
+### Codex · 多个身份，一处管理
 
 集中查看当前账号、Pro / Pro Lite / Pro Max / Plus 套餐、本机今日用量和近 7 天趋势。支持添加账号、搜索筛选、保存当前账号，以及切换并重启 Codex。
 
-![账号管理主界面：当前账号、用量指标与多账号卡片](docs/images/accounts.png)
+![Codex 主界面：当前凭据、套餐和额度、多账号卡片与最近七天趋势](docs/images/accounts.png)
+
+### Antigravity · 保存、切换与恢复
+
+点击「添加账号」打开 Antigravity，在应用内完成官方 Google 登录，再回到这里「保存当前账号」。已保存账号支持名称或邮箱搜索、重命名与归档移除；原独立切换器的本机账号库可继续使用。
+
+选择「切换并重启」后，工具依次检查目标、退出应用、保存当前最新凭据、写入并回读、检查启动。后台未退出时可自行退出重试，或在保存工作后经二次确认结束目标安装中的后台进程；共享登录的其他 CLI 仍需自行退出。
+
+![Antigravity 账号页：当前本机凭据、搜索、账号卡片、切换重启和自动备份](docs/images/antigravity.png)
+
+<details>
+<summary><strong>展开查看：切换中断后的恢复入口</strong></summary>
+
+写入或启动失败时先恢复原凭据；无法安全恢复时保留中断记录，并阻止继续切换。完全退出 Antigravity 与相关 CLI 后，点击「恢复中断前的登录」。下图为合成的中断状态，演示恢复入口和受限操作；不代表真实账号发生故障。
+
+![Antigravity 中断恢复：恢复原登录按钮、受限的账号操作及历史备份](docs/images/antigravity-recovery.png)
+
+</details>
 
 ### 桌面悬浮窗 · 额度与用量随时可见
 
-Pro 关闭五小时展示时以周额度为主仪表；Plus 展示五小时与每周两个额度窗口。悬浮窗支持本地刷新、置顶、明暗主题和账号选择，确认目标后再切换。
+Pro 关闭五小时展示时以周额度为主仪表；Plus 展示五小时与每周两个额度窗口。悬浮窗支持本地刷新、置顶、明暗主题和账号选择，确认目标后再切换。当前身份变化时自动跟随，用户主动选择的待切换目标会在普通刷新中保留。
 
 | Pro 周额度模式 | Plus 双额度深色模式 | 账号选择 |
 | --- | --- | --- |
@@ -194,6 +211,7 @@ macOS 支持从 PATH、`/opt/homebrew/bin`、`/usr/local/bin`、`~/.local/bin` �
 
 ## 主要功能
 
+- Codex 与 Windows Antigravity 独立账号页；Antigravity 支持加密保存、搜索、重命名、归档移除、切换重启、历史备份与中断恢复。
 - 官方浏览器登录：独立临时 CODEX_HOME，授权成功后加密保存，可取消和重新打开授权页。
 - 账号保存、重命名、搜索、筛选、删除；重复身份更新已有记录。
 - 切换前校验、正常关闭 Codex、确认退出、保存当前最新凭据、原子替换、重新启动；失败恢复原凭据。
