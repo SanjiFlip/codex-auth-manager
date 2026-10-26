@@ -1,0 +1,91 @@
+name: Publish preview release
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful Source checks run for this main commit
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency: publish-preview-release
+jobs:
+  publish:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    env:
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Require successful checks and an unpublished draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($env:GITHUB_REF -ne 'refs/heads/main' -or $env:SOURCE_RUN_ID -notmatch '^\d+$') { throw 'Invalid release source' }
+          $checked = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:SOURCE_RUN_ID" | ConvertFrom-Json
+          if ($checked.name -ne 'Source checks' -or $checked.conclusion -ne 'success' -or $checked.head_sha -ne $env:GITHUB_SHA -or $checked.head_branch -ne 'main') { throw 'Source checks must pass for this exact commit' }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid release version' }
+          $tag = 'v' + $version
+          $draft = gh release view $tag --json isDraft | ConvertFrom-Json
+          if (-not $draft.isDraft) { throw 'Only unpublished drafts may be updated' }
+          "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+      - run: npm ci
+      - run: npm run dist
+      - run: node scripts/packaged-smoke.js
+      - run: npx electron scripts/antigravity-smoke.js --packaged release
+      - name: Check the packaged native component
+        run: |
+          New-Item -ItemType Directory -Force output/native | Out-Null
+          & './release/win-unpacked/resources/app.asar.unpacked/src/antigravity/AntigravityBridge.exe' --self-test output/native/results.json
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged native tests failed' }
+      - name: Collect and compare all platform packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          New-Item -ItemType Directory -Force output/publish-release/assets | Out-Null
+          gh run download $env:SOURCE_RUN_ID --name macos-arm64 --dir output/publish-release/assets
+          gh run download $env:SOURCE_RUN_ID --name macos-x64 --dir output/publish-release/assets
+          Copy-Item -LiteralPath "release/Codex Auth Manager Setup $env:RELEASE_VERSION.exe" -Destination "output/publish-release/assets/Codex-Auth-Manager-Setup-$env:RELEASE_VERSION-x64.exe"
+          node scripts/verify-release-artifacts.js output/publish-release
+      - name: Upload complete assets and publish the preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          function Get-ReleaseTagCommit {
+            $refs = @(git ls-remote origin "refs/tags/$env:RELEASE_TAG" "refs/tags/$env:RELEASE_TAG^{}")
+            if (-not $refs.Count) { return $null }
+            $resolved = $refs | Where-Object { $_ -match '\^\{\}$' } | Select-Object -Last 1
+            if (-not $resolved) { $resolved = $refs[0] }
+            return ($resolved -split '\s+')[0]
+          }
+          $tagCommit = Get-ReleaseTagCommit
+          if ($tagCommit -and $tagCommit -ne $env:GITHUB_SHA) { throw 'Existing release tag points to another commit' }
+          $draft = gh release view $env:RELEASE_TAG --json isDraft,apiUrl | ConvertFrom-Json
+          if (-not $draft.isDraft) { throw 'The release is already published' }
+          $files = @(Get-ChildItem output/publish-release/assets -File)
+          gh release upload $env:RELEASE_TAG @($files.FullName) --clobber
+          $release = gh api $draft.apiUrl | ConvertFrom-Json
+          if (-not $release.draft -or $release.assets.Count -ne $files.Count) { throw 'Unexpected release assets' }
+          foreach ($file in $files) {
+            $asset = @($release.assets | Where-Object name -eq $file.Name)
+            if ($asset.Count -ne 1 -or $asset[0].size -ne $file.Length -or $asset[0].state -ne 'uploaded') { throw "Incomplete asset: $($file.Name)" }
+          }
+          gh release edit $env:RELEASE_TAG --target $env:GITHUB_SHA --draft=false --prerelease
+          if ((Get-ReleaseTagCommit) -ne $env:GITHUB_SHA) { throw 'Published tag does not match the checked source' }
