@@ -26,7 +26,8 @@ function extractMac(archive,destination){
     if(error)return reject(error);
     zip.on('error',reject);
     zip.on('entry',entry=>{
-      const suffix=[...wanted.keys()].find(key=>entry.fileName.endsWith('/'+key));
+      // Ignore Info.plist files inside nested Electron helper applications.
+      const suffix=[...wanted.keys()].find(key=>entry.fileName==='Codex Auth Manager.app/'+key);
       if(!suffix){zip.readEntry();return}
       if(entry.uncompressedSize>128*1024*1024){zip.close();reject(Error('Unexpected embedded file size'));return}
       const target=path.join(destination,wanted.get(suffix));wanted.delete(suffix);
